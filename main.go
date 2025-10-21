@@ -103,6 +103,14 @@ func generateHandler(w http.ResponseWriter, r *http.Request) {
 
 	generatedText := markov.BuildChain(wordCount)
 
+	// Generate random words for links (used in both streaming and non-streaming)
+	babbler := babble.NewBabbler()
+	babbler.Count = 1
+	link1 := babbler.Babble()
+	link2 := babbler.Babble()
+	link3 := babbler.Babble()
+	link4 := babbler.Babble()
+
 	// non-streaming: immediate response (same look-and-feel as before)
 	if !stream {
 		// Display the requested path in the HTML
@@ -128,6 +136,7 @@ func generateHandler(w http.ResponseWriter, r *http.Request) {
             margin: 20px 0;
         }
         a { margin: 0 10px; }
+        ul { margin: 20px 0; }
     </style>
 </head>
 <body>
@@ -137,6 +146,13 @@ func generateHandler(w http.ResponseWriter, r *http.Request) {
     <div class="text-1">
         <p>` + html.EscapeString(generatedText) + `</p>
     </div>
+    
+    <ul>
+        <li><a href="/` + link1 + `">` + link1 + `</a></li>
+        <li><a href="/` + link2 + `">` + link2 + `</a></li>
+        <li><a href="/` + link3 + `">` + link3 + `</a></li>
+        <li><a href="/` + link4 + `">` + link4 + `</a></li>
+    </ul>
 </body>
 </html>`
 
@@ -169,6 +185,7 @@ func generateHandler(w http.ResponseWriter, r *http.Request) {
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; }
         .text-1 { background-color: #f0f0f0; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        ul { margin: 20px 0; }
     </style>
 </head>
 <body>
@@ -212,7 +229,14 @@ func generateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// close the HTML
-	fmt.Fprint(w, `</p></div></body></html>`)
+	// close the text div and add links
+	fmt.Fprint(w, `</p></div>
+    <ul>
+        <li><a href="/`+link1+`">`+link1+`</a></li>
+        <li><a href="/`+link2+`">`+link2+`</a></li>
+        <li><a href="/`+link3+`">`+link3+`</a></li>
+        <li><a href="/`+link4+`">`+link4+`</a></li>
+    </ul>
+</body></html>`)
 	flusher.Flush()
 }
