@@ -1,0 +1,96 @@
+# ------------------------------------------------------------------------------
+# Core Go build artifacts
+# ------------------------------------------------------------------------------
+/bin/
+/build/
+/dist/
+/out/
+/target/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# ------------------------------------------------------------------------------
+# Go modules and dependency caches
+# ------------------------------------------------------------------------------
+# Keep go.mod and go.sum — they’re required for reproducible builds
+/vendor/
+/.gopath/
+/Godeps/
+go.work
+go.work.sum
+
+# ------------------------------------------------------------------------------
+# Test outputs and coverage reports
+# ------------------------------------------------------------------------------
+*.cover
+*.coverprofile
+*.cov
+*.gcov
+*.prof
+*.trace
+*.log
+
+# ------------------------------------------------------------------------------
+# OS / Editor / Tooling noise
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux / others
+*~
+.nfs*
+
+# ------------------------------------------------------------------------------
+# IDEs / Editors
+# ------------------------------------------------------------------------------
+# JetBrains / GoLand
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Sublime / Atom / Vim
+*.sublime-project
+*.sublime-workspace
+.vim/
+*.swp
+*.swo
+*~
+.session.vim
+
+# ------------------------------------------------------------------------------
+# Build tooling
+# ------------------------------------------------------------------------------
+# GoReleaser
+/dist/
+# Staticcheck, golangci-lint caches
+.golangci-lint.cache/
+.staticcheck/
+# Docker / container build cache
+.docker/
+.dockerignore
+
+# ------------------------------------------------------------------------------
+# Miscellaneous
+# ------------------------------------------------------------------------------
+.env
+.env.*
+*.tmp
+*.bak
+*.old
+*.orig
+/tmp
