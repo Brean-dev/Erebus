@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"html"
 	"log"
 	"log/slog"
+	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
+	"time"
 
 	"erebus/markov"
 
@@ -23,58 +25,6 @@ func init() {
 	// Use 1000 randomly sampled words from Babbler's dictionary
 	if err := markov.InitFromBabbler(b, 2, 1000); err != nil {
 		log.Fatalf("Failed to initialize: %v", err)
-	}
-}
-
-func generateHandler(w http.ResponseWriter, r *http.Request) {
-	wordCount := 500
-	if count := r.URL.Query().Get("count"); count != "" {
-		if c, err := strconv.Atoi(count); err == nil && c > 0 && c <= 100 {
-			wordCount = c
-		}
-	}
-
-	generatedText := markov.BuildChain(wordCount)
-
-	// Display the requested path in the HTML
-	requestPath := r.URL.Path
-	if requestPath == "" {
-		requestPath = "/"
-	}
-
-	html := `<!DOCTYPE html>
-<html>
-<head>
-	<title></title>
-	<style>
-		body { font-family: Arial, sans-serif; margin: 40px; }
-		.header {
-			color: #333;
-			margin-bottom: 20px;
-		}
-		.text-1 {
-			background-color: #f0f0f0;
-			padding: 20px;
-			border-radius: 5px;
-			margin: 20px 0;
-		}
-		a { margin: 0 10px; }
-	</style>
-</head>
-<body>
-	<div class="header">
-		<h1></h1>
-	</div>
-	<div class="text-1">
-		<p>` + generatedText + `</p>
-	</div>
-</body>
-</html>`
-
-	w.Header().Set("Content-Type", "text/html")
-	_, errFprint := fmt.Fprint(w, html)
-	if errFprint != nil {
-		fmt.Printf("err: %s \n", errFprint)
 	}
 }
 
@@ -142,4 +92,127 @@ func logRequest(handler http.Handler) http.Handler {
 
 		handler.ServeHTTP(w, r)
 	})
+}
+
+func generateHandler(w http.ResponseWriter, r *http.Request) {
+	// parse count with same constraints
+	wordCount := 500
+
+	// slow/stream flag and delay per word (ms)
+	stream := true
+
+	generatedText := markov.BuildChain(wordCount)
+
+	// non-streaming: immediate response (same look-and-feel as before)
+	if !stream {
+		// Display the requested path in the HTML
+		requestPath := r.URL.Path
+		if requestPath == "" {
+			requestPath = "/"
+		}
+
+		html := `<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .text-1 {
+            background-color: #f0f0f0;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        a { margin: 0 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>` + html.EscapeString(requestPath) + `</h1>
+    </div>
+    <div class="text-1">
+        <p>` + html.EscapeString(generatedText) + `</p>
+    </div>
+</body>
+</html>`
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, errFprint := fmt.Fprint(w, html)
+		if errFprint != nil {
+			fmt.Printf("err: %s \n", errFprint)
+		}
+		return
+	}
+
+	// streaming slow response (simulate slow connection)
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported by server", http.StatusInternalServerError)
+		return
+	}
+
+	// Prevent some reverse proxies from buffering (Nginx)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+
+	// Write initial HTML skeleton and flush so the browser starts rendering
+	fmt.Fprint(w, `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Slow stream</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .text-1 { background-color: #f0f0f0; padding: 20px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="text-1"><p>`)
+	flusher.Flush()
+
+	words := strings.Fields(generatedText)
+
+	// Simulate slow connection with variable chunk sizes and delays
+	i := 0
+	for i < len(words) {
+		select {
+		case <-r.Context().Done():
+			// client disconnected, stop work
+			return
+		default:
+			// Variable chunk size: 1-8 words at a time
+			chunkSize := 1 + rand.Intn(8)
+			if i+chunkSize > len(words) {
+				chunkSize = len(words) - i
+			}
+
+			// Send the chunk
+			chunk := words[i : i+chunkSize]
+			fmt.Fprint(w, html.EscapeString(strings.Join(chunk, " "))+" ")
+			flusher.Flush()
+
+			i += chunkSize
+
+			// Variable delay: 20-200ms with occasional longer pauses (300-500ms)
+			var delay time.Duration
+			if rand.Float32() < 0.15 { // 15% chance of longer pause (network congestion)
+				delay = time.Duration(300+rand.Intn(200)) * time.Millisecond
+			} else {
+				delay = time.Duration(20+rand.Intn(180)) * time.Millisecond
+			}
+
+			if i < len(words) {
+				time.Sleep(delay)
+			}
+		}
+	}
+
+	// close the HTML
+	fmt.Fprint(w, `</p></div></body></html>`)
+	flusher.Flush()
 }
