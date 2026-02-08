@@ -100,7 +100,6 @@ func BableManifesto(numWords int, prefixLen int) string {
 	c := NewChain(prefixLen)
 	c.Build(ReadManifesto(numWords, prefixLen))
 	text := c.Generate(numWords)
-	fmt.Println(text)
 
 	return text
 }
