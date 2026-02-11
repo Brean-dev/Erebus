@@ -109,35 +109,35 @@ func LogRequest(handler http.Handler) http.Handler {
 		}
 
 		ua := r.Header.Get("User-Agent")
-		secChUa := r.Header.Get("Sec-CH-UA")
+		// secChUa := r.Header.Get("Sec-CH-UA")
 		accept := r.Header.Get("Accept")
 		lang := r.Header.Get("Accept-Language")
 		encoding := r.Header.Get("Accept-Encoding")
+		cfConnectingIP := r.Header.Get("CF-Connecting-IP")
 
-		// --- simple scraper detection ---
-		isBot := false
-		lowerUA := strings.ToLower(ua)
-		if ua == "" ||
-			strings.Contains(lowerUA, "curl") ||
-			strings.Contains(lowerUA, "python") ||
-			strings.Contains(lowerUA, "scrapy") ||
-			strings.Contains(lowerUA, "httpclient") ||
-			strings.Contains(lowerUA, "go-http-client") ||
-			strings.Contains(lowerUA, "httpx") ||
-			strings.Contains(lowerUA, "bot") ||
-			secChUa == "" ||
-			!strings.HasPrefix(ua, "Mozilla/5.0") ||
-			len(r.Header) < 5 {
-			isBot = true
-		}
-
-		tag := ""
-		if isBot {
-			tag = "[BOT]"
-		}
-
-		log.Printf("%s %s %s %s %s UA=%q Accept=%q Lang=%q Enc=%q Headers=%d",
-			tag,
+		// // --- simple scraper detection ---
+		// isBot := false
+		// lowerUA := strings.ToLower(ua)
+		// if ua == "" ||
+		// 	strings.Contains(lowerUA, "curl") ||
+		// 	strings.Contains(lowerUA, "python") ||
+		// 	strings.Contains(lowerUA, "scrapy") ||
+		// 	strings.Contains(lowerUA, "httpclient") ||
+		// 	strings.Contains(lowerUA, "go-http-client") ||
+		// 	strings.Contains(lowerUA, "httpx") ||
+		// 	strings.Contains(lowerUA, "bot") ||
+		// 	secChUa == "" ||
+		// 	!strings.HasPrefix(ua, "Mozilla/5.0") ||
+		// 	len(r.Header) < 5 {
+		// 	isBot = true
+		// }
+		//
+		// tag := ""
+		// if isBot {
+		// 	tag = "[BOT]"
+		// }
+		//
+		log.Printf("%s %s %s %s UA=%q Accept=%q Lang=%q Enc=%q Headers=%d CF-Connecting-IP=%s",
 			r.RemoteAddr,
 			r.Method,
 			r.URL.Path,
@@ -147,6 +147,7 @@ func LogRequest(handler http.Handler) http.Handler {
 			lang,
 			encoding,
 			len(r.Header),
+			cfConnectingIP,
 		)
 
 		handler.ServeHTTP(w, r)
