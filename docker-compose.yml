@@ -1,0 +1,23 @@
+services:
+  erebus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: erebus-app
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    # Uncomment and add environment variables as needed:
+    # environment:
+    #   - ENV_VAR=value
+    #   - ANOTHER_VAR=value
+    # Or use mapping format:
+    # environment:
+    #   ENV_VAR: value
+    #   ANOTHER_VAR: value
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
