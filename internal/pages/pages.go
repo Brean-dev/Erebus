@@ -103,12 +103,12 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 func LogRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ua := r.Header.Get("User-Agent")
-		// secChUa := r.Header.Get("Sec-CH-UA")
+		secChUa := r.Header.Get("Sec-CH-UA")
 		accept := r.Header.Get("Accept")
 		lang := r.Header.Get("Accept-Language")
 		encoding := r.Header.Get("Accept-Encoding")
 		cfConnectingIP := r.Header.Get("CF-Connecting-IP")
-		
+
 		// skip noisy automatic requests
 		if r.URL.Path == "/favicon.ico" || r.URL.Path == "/robots.txt" {
 			handler.ServeHTTP(w, r)
@@ -142,7 +142,8 @@ func LogRequest(handler http.Handler) http.Handler {
 			tag = "[BOT]"
 		}
 		
-		log.Printf("%s %s %s %s UA=%q Accept=%q Lang=%q Enc=%q Headers=%d CF-Connecting-IP=%s",
+		log.Printf("%s %s %s %s %s UA=%q Accept=%q Lang=%q Enc=%q Headers=%d CF-Connecting-IP=%s",
+			tag,
 			r.RemoteAddr,
 			r.Method,
 			r.URL.Path,
