@@ -10,8 +10,8 @@ services:
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-    env_file:
-     - ./.env
+    volumes:
+      - /logs:/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
@@ -30,3 +30,5 @@ services:
 volumes:
   cache:
     driver: local
+
+
