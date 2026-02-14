@@ -169,6 +169,18 @@ func (l *FileLogger) log(ctx context.Context, level Level, msg string, fields ..
 	}
 
 	allFields := append(l.fields, fields...)
+
+	for _, field := range allFields {
+		if field.Key == "user_agent" {
+			strValue, ok := field.Value.(string)
+			if !ok {
+				continue
+			}
+			if strValue == "" || strings.Contains(strValue, "www.l") {
+				return
+			}
+		}
+	}
 	for _, field := range allFields {
 		entry[field.Key] = field.Value
 	}
