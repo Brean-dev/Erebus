@@ -9,10 +9,19 @@ import (
 	"strings"
 )
 
-var log logger.Logger
+var log *logger.MultiLogger
 
 func init() {
-	log = logger.NewStandardLogger(os.Stdout, logger.InfoLevel)
+	consoleLog := logger.NewStandardLogger(os.Stdout, logger.InfoLevel)
+	logFile, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer logFile.Close()
+
+	fileLog := logger.NewStandardLogger(logFile, logger.InfoLevel)
+	log = logger.NewMultiLogger(consoleLog, fileLog)
+
 }
 
 func GenerateRequestID() string {
