@@ -11,6 +11,7 @@ import (
 
 	"github.com/MatusOllah/slogcolor"
 	"log/slog"
+	"strings"
 	"time"
 )
 
@@ -60,21 +61,34 @@ func (l *StandardLogger) log(ctx context.Context, level Level, msg string,
 	}
 
 	// Build attributes
-	attrs := []slog.Attr{}
-	for _, field := range l.fields {
-		attrs = append(attrs, slog.Any(field.Key, field.Value))
-	}
-	for _, field := range fields {
-		attrs = append(attrs, slog.Any(field.Key, field.Value))
-	}
-	if traceID := ctx.Value("trace_id"); traceID != nil {
-		attrs = append(attrs, slog.Any("trace_id", traceID))
-	}
-	if requestID := ctx.Value("request_id"); requestID != nil {
-		attrs = append(attrs, slog.Any("request_id", requestID))
+	excludedKeys := map[string]bool{
+		"remote_addr": true,
+		"remote_path": true,
+		"accept":      true,
+		"lang":        true,
+		"encoding":    true,
+		"header_len":  true,
 	}
 
-	// Output colored slog to stdout
+	attrs := []slog.Attr{}
+	for _, field := range l.fields {
+		strValue, ok := field.Value.(string)
+		if !ok {
+			continue
+		}
+		if strValue == "" ||
+			strings.Contains(strValue, "www.letsencrypt.org") {
+			return
+		}
+		if !excludedKeys[field.Key] {
+			attrs = append(attrs, slog.Any(field.Key, field.Value))
+		}
+	}
+	for _, field := range fields {
+		if !excludedKeys[field.Key] {
+			attrs = append(attrs, slog.Any(field.Key, field.Value))
+		}
+	} // Output colored slog to stdout
 	record := slog.NewRecord(time.Now(), slogLevel, msg, 0)
 	record.AddAttrs(attrs...)
 	_ = l.slogHandler.Handle(ctx, record)
@@ -88,7 +102,6 @@ func (l *StandardLogger) log(ctx context.Context, level Level, msg string,
 	for _, attr := range attrs {
 		entry[attr.Key] = attr.Value
 	}
-	// _ = l.encoder.Encode(entry)
 }
 
 func (l *StandardLogger) Debug(ctx context.Context, msg string, fields ...Field) {

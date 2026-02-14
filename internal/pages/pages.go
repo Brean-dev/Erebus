@@ -12,28 +12,6 @@ import (
 	"Erebus/internal/bable"
 )
 
-//	func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
-//		return func(w http.ResponseWriter, r *http.Request) {
-//			requestID := r.Header.Get("X-Request-ID")
-//			if requestID == "" {
-//				requestID = utils.GenerateRequestID()
-//			}
-//
-//			ctx := context.WithValue(r.Context(), "request_id", requestID)
-//
-//			reqLog := log.WithFields(
-//				logger.Field{Key: "method", Value: r.Method},
-//				logger.Field{Key: "path", Value: r.URL.Path},
-//				logger.Field{Key: "remote_addr", Value: r.RemoteAddr},
-//			)
-//
-//			reqLog.Info(ctx, "request started")
-//
-//			next.ServeHTTP(w, r.WithContext(ctx))
-//
-//			reqLog.Info(ctx, "request completed")
-//		}
-//	}
 func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	wordCount := 1000
 	prefixLen := 5

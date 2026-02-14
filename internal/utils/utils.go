@@ -4,6 +4,7 @@ import (
 	guuid "github.com/google/uuid"
 
 	"Erebus/internal/logger"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -17,7 +18,11 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	defer logFile.Close()
+	defer func(fs *os.File) {
+		if err := fs.Close(); err != nil {
+			_ = fmt.Errorf("%s", err)
+		}
+	}(logFile)
 
 	fileLog := logger.NewStandardLogger(logFile, logger.InfoLevel)
 	log = logger.NewMultiLogger(consoleLog, fileLog)
@@ -45,14 +50,13 @@ func LogRequest(handler http.Handler) http.Handler {
 			return
 		}
 
-		if ua == "Wget" {
+		lowerUA := strings.ToLower(ua)
+		if ua == "" || strings.Contains(lowerUA, "wget") {
 			return
 		}
 
 		// --- simple scraper detection ---
-		isBot := false
-		lowerUA := strings.ToLower(ua)
-		if ua == "" ||
+		isBot := ua == "" ||
 			strings.Contains(lowerUA, "curl") ||
 			strings.Contains(lowerUA, "python") ||
 			strings.Contains(lowerUA, "scrapy") ||
@@ -62,9 +66,7 @@ func LogRequest(handler http.Handler) http.Handler {
 			strings.Contains(lowerUA, "bot") ||
 			secChUa == "" ||
 			!strings.HasPrefix(ua, "Mozilla/5.0") ||
-			len(r.Header) < 5 {
-			isBot = true
-		}
+			len(r.Header) < 5
 
 		tag := ""
 		if isBot {
