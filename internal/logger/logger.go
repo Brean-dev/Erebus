@@ -3,30 +3,35 @@ package logger
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"sync"
+
+	"github.com/MatusOllah/slogcolor"
+	"log/slog"
 	"time"
 )
 
 type StandardLogger struct {
-	mu      sync.Mutex
-	level   Level
-	output  io.Writer
-	fields  []Field
-	encoder *json.Encoder
+	mu          sync.Mutex
+	level       Level
+	output      io.Writer
+	fields      []Field
+	encoder     *json.Encoder
+	slogHandler slog.Handler
 }
 
 func NewStandardLogger(output io.Writer, level Level) *StandardLogger {
+
 	if output == nil {
 		output = os.Stdout
 	}
 	return &StandardLogger{
-		level:   level,
-		output:  output,
-		fields:  make([]Field, 0),
-		encoder: json.NewEncoder(output),
+		level:       level,
+		output:      output,
+		fields:      make([]Field, 0),
+		encoder:     json.NewEncoder(output),
+		slogHandler: slogcolor.NewHandler(output, slogcolor.DefaultOptions),
 	}
 }
 
@@ -36,40 +41,54 @@ func (l *StandardLogger) log(ctx context.Context, level Level, msg string,
 		return // Skipping when the level is below minimum level
 	}
 
-	// Locking the variable so other threads can not touch it
 	l.mu.Lock()
-	// defer Unlocking to when the function has completed, defer wil
-	// Unlock it before exiting the function
 	defer l.mu.Unlock()
 
-	//Bulding the log
-	entry := make(map[string]interface{})
-	entry["timestamp"] = time.Now().UTC().Format(time.RFC3339Nano)
-	entry["level"] = level.String()
-	entry["message"] = msg
+	// Convert your Level to slog.Level
+	var slogLevel slog.Level
+	switch level {
+	case DebugLevel:
+		slogLevel = slog.LevelDebug
+	case InfoLevel:
+		slogLevel = slog.LevelInfo
+	case WarnLevel:
+		slogLevel = slog.LevelWarn
+	case ErrorLevel:
+		slogLevel = slog.LevelError
+	}
 
-	// Add logger-level fields
+	// Build attributes
+	attrs := []slog.Attr{}
 	for _, field := range l.fields {
-		entry[field.Key] = field.Value
+		attrs = append(attrs, slog.Any(field.Key, field.Value))
 	}
-
-	// Add call-specific fields
 	for _, field := range fields {
-		entry[field.Key] = field.Value
+		attrs = append(attrs, slog.Any(field.Key, field.Value))
 	}
-
-	// Extract values from context
 	if traceID := ctx.Value("trace_id"); traceID != nil {
-		entry["trace_id"] = traceID
+		attrs = append(attrs, slog.Any("trace_id", traceID))
 	}
-
 	if requestID := ctx.Value("request_id"); requestID != nil {
-		entry["request_id"] = requestID
+		attrs = append(attrs, slog.Any("request_id", requestID))
 	}
 
-	// JSON encode the entry
-	_ = l.encoder.Encode(entry)
+	// Output colored slog to stdout
+	record := slog.NewRecord(time.Now(), slogLevel, msg, 0)
+	record.AddAttrs(attrs...)
+	_ = l.slogHandler.Handle(ctx, record)
+
+	// Output JSON to file
+	entry := map[string]interface{}{
+		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+		"level":     level.String(),
+		"message":   msg,
+	}
+	for _, attr := range attrs {
+		entry[attr.Key] = attr.Value
+	}
+	// _ = l.encoder.Encode(entry)
 }
+
 func (l *StandardLogger) Debug(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, DebugLevel, msg, fields...)
 }
@@ -104,9 +123,10 @@ func (l *StandardLogger) WithFields(fields ...Field) Logger {
 	copy(newFields[len(l.fields):], fields)
 
 	return &StandardLogger{
-		level:   l.level,
-		output:  l.output,
-		fields:  newFields,
-		encoder: l.encoder,
+		level:       l.level,
+		output:      l.output,
+		fields:      newFields,
+		slogHandler: l.slogHandler,
+		encoder:     l.encoder,
 	}
 }
