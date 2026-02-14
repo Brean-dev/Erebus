@@ -4,15 +4,44 @@ package pages
 import (
 	"fmt"
 	"html"
-	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"Erebus/internal/bable"
+	"Erebus/internal/logger"
 )
 
+var log logger.Logger
+
+func init() {
+	log = logger.NewStandardLogger(os.Stdout, logger.InfoLevel)
+}
+
+//	func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
+//		return func(w http.ResponseWriter, r *http.Request) {
+//			requestID := r.Header.Get("X-Request-ID")
+//			if requestID == "" {
+//				requestID = utils.GenerateRequestID()
+//			}
+//
+//			ctx := context.WithValue(r.Context(), "request_id", requestID)
+//
+//			reqLog := log.WithFields(
+//				logger.Field{Key: "method", Value: r.Method},
+//				logger.Field{Key: "path", Value: r.URL.Path},
+//				logger.Field{Key: "remote_addr", Value: r.RemoteAddr},
+//			)
+//
+//			reqLog.Info(ctx, "request started")
+//
+//			next.ServeHTTP(w, r.WithContext(ctx))
+//
+//			reqLog.Info(ctx, "request completed")
+//		}
+//	}
 func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	wordCount := 1000
 	prefixLen := 5
@@ -103,6 +132,7 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 
 func LogRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		ua := r.Header.Get("User-Agent")
 		secChUa := r.Header.Get("Sec-CH-UA")
 		accept := r.Header.Get("Accept")
@@ -140,21 +170,35 @@ func LogRequest(handler http.Handler) http.Handler {
 		if isBot {
 			tag = "[BOT]"
 		}
-
-		log.Printf("%s %s %s %s %s UA=%q Accept=%q Lang=%q Enc=%q Headers=%d CF-Connecting-IP=%s",
-			tag,
-			r.RemoteAddr,
-			r.Method,
-			r.URL.Path,
-			r.Proto,
-			ua,
-			accept,
-			lang,
-			encoding,
-			len(r.Header),
-			cfConnectingIP,
+		reqLog := log.WithFields(
+			logger.Field{Key: "tag", Value: tag},
+			logger.Field{Key: "remote_addr", Value: r.RemoteAddr},
+			logger.Field{Key: "method", Value: r.Method},
+			logger.Field{Key: "remote_path", Value: r.URL.Path},
+			logger.Field{Key: "proto", Value: r.Proto},
+			logger.Field{Key: "user_agent", Value: ua},
+			logger.Field{Key: "accept", Value: accept},
+			logger.Field{Key: "lang", Value: lang},
+			logger.Field{Key: "encoding", Value: encoding},
+			logger.Field{Key: "header_len", Value: len(r.Header)},
+			logger.Field{Key: "real_ip", Value: cfConnectingIP},
 		)
+		reqLog.Info(ctx, "serving request")
 
+		// log.Printf("%s %s %s %s %s UA=%q Accept=%q Lang=%q Enc=%q Headers=%d CF-Connecting-IP=%s",
+		// 	tag,
+		// 	r.RemoteAddr,
+		// 	r.Method,
+		// 	r.URL.Path,
+		// 	r.Proto,
+		// 	ua,
+		// 	accept,
+		// 	lang,
+		// 	encoding,
+		// 	len(r.Header),
+		// 	cfConnectingIP,
+		// )
+		//
 		handler.ServeHTTP(w, r)
 	})
 }
