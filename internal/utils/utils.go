@@ -8,25 +8,28 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 var log *logger.MultiLogger
+var logFile *os.File
+var logFileError error
 
 func init() {
-	consoleLog := logger.NewStandardLogger(os.Stdout, logger.InfoLevel)
-	logFile, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		panic(err)
+	dirErr := os.Mkdir("logs", 0755)
+	if dirErr != nil {
+		_ = fmt.Errorf("%s", dirErr)
 	}
-	defer func(fs *os.File) {
-		if err := fs.Close(); err != nil {
-			_ = fmt.Errorf("%s", err)
-		}
-	}(logFile)
+	consoleLog := logger.NewStdoutLogger(os.Stdout, logger.InfoLevel)
+	todayLogFile := time.Now()
+	logFile, logFileError = os.OpenFile(fmt.Sprintf("/logs/app_%s.log",
+		todayLogFile.Format("2006-01-02")), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if logFileError != nil {
+		_ = fmt.Errorf("%s", logFileError)
+	}
 
-	fileLog := logger.NewStandardLogger(logFile, logger.InfoLevel)
+	fileLog := logger.NewFileLogger(logFile, logger.InfoLevel)
 	log = logger.NewMultiLogger(consoleLog, fileLog)
-
 }
 
 func GenerateRequestID() string {

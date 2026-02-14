@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-type StandardLogger struct {
+type StdoutLogger struct {
 	mu          sync.Mutex
 	level       Level
 	output      io.Writer
@@ -24,12 +24,20 @@ type StandardLogger struct {
 	slogHandler slog.Handler
 }
 
-func NewStandardLogger(output io.Writer, level Level) *StandardLogger {
+type FileLogger struct {
+	mu      sync.Mutex
+	level   Level
+	output  io.Writer
+	fields  []Field
+	encoder *json.Encoder
+}
+
+func NewStdoutLogger(output io.Writer, level Level) *StdoutLogger {
 
 	if output == nil {
 		output = os.Stdout
 	}
-	return &StandardLogger{
+	return &StdoutLogger{
 		level:       level,
 		output:      output,
 		fields:      make([]Field, 0),
@@ -38,16 +46,27 @@ func NewStandardLogger(output io.Writer, level Level) *StandardLogger {
 	}
 }
 
-func (l *StandardLogger) log(ctx context.Context, level Level, msg string,
-	fields ...Field) {
+func NewFileLogger(output io.Writer, level Level) *FileLogger {
+
+	return &FileLogger{
+		level:   level,
+		output:  output,
+		fields:  make([]Field, 0),
+		encoder: json.NewEncoder(output),
+	}
+}
+
+// StdoutLogger methods - implements Logger interface with colored output
+
+func (l *StdoutLogger) log(ctx context.Context, level Level, msg string, fields ...Field) {
 	if level < l.level {
-		return // Skipping when the level is below minimum level
+		return
 	}
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// Convert your Level to slog.Level
+	// Convert Level to slog.Level
 	var slogLevel slog.Level
 	switch level {
 	case DebugLevel:
@@ -60,7 +79,7 @@ func (l *StandardLogger) log(ctx context.Context, level Level, msg string,
 		slogLevel = slog.LevelError
 	}
 
-	// Build attributes
+	// Build attributes, excluding noisy fields
 	excludedKeys := map[string]bool{
 		"remote_addr": true,
 		"remote_path": true,
@@ -71,14 +90,14 @@ func (l *StandardLogger) log(ctx context.Context, level Level, msg string,
 	}
 
 	attrs := []slog.Attr{}
-	for _, field := range l.fields {
+	allFields := append(l.fields, fields...)
+	for _, field := range allFields {
 		if field.Key == "user_agent" {
 			strValue, ok := field.Value.(string)
 			if !ok {
 				continue
 			}
-			if strValue == "" ||
-				strings.Contains(strValue, "www.letsencrypt.org") {
+			if strValue == "" || strings.Contains(strValue, "www.letsencrypt.org") {
 				return
 			}
 		}
@@ -86,64 +105,112 @@ func (l *StandardLogger) log(ctx context.Context, level Level, msg string,
 			attrs = append(attrs, slog.Any(field.Key, field.Value))
 		}
 	}
-	for _, field := range fields {
-		if !excludedKeys[field.Key] {
-			attrs = append(attrs, slog.Any(field.Key, field.Value))
-		}
-	} // Output colored slog to stdout
+
+	// Output colored slog to stdout
 	record := slog.NewRecord(time.Now(), slogLevel, msg, 0)
 	record.AddAttrs(attrs...)
 	_ = l.slogHandler.Handle(ctx, record)
-
-	// Output JSON to file
-	entry := map[string]any{
-		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
-		"level":     level.String(),
-		"message":   msg,
-	}
-	for _, attr := range attrs {
-		entry[attr.Key] = attr.Value
-	}
 }
 
-func (l *StandardLogger) Debug(ctx context.Context, msg string, fields ...Field) {
+func (l *StdoutLogger) Debug(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, DebugLevel, msg, fields...)
 }
 
-func (l *StandardLogger) Info(ctx context.Context, msg string, fields ...Field) {
+func (l *StdoutLogger) Info(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, InfoLevel, msg, fields...)
 }
 
-func (l *StandardLogger) Warn(ctx context.Context, msg string, fields ...Field) {
+func (l *StdoutLogger) Warn(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, WarnLevel, msg, fields...)
 }
 
-func (l *StandardLogger) Error(ctx context.Context, msg string, fields ...Field) {
+func (l *StdoutLogger) Error(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, ErrorLevel, msg, fields...)
 }
 
-func (l *StandardLogger) SetLevel(level Level) {
-	// Lock thread
+func (l *StdoutLogger) SetLevel(level Level) {
 	l.mu.Lock()
-	// Unlock thread at end of function
+	defer l.mu.Unlock()
 	l.level = level
 }
 
-func (l *StandardLogger) WithFields(fields ...Field) Logger {
-	// Locking the variables in this thread so they are immutable
+func (l *StdoutLogger) WithFields(fields ...Field) Logger {
 	l.mu.Lock()
-	// Unlock the thread at the end of the function
 	defer l.mu.Unlock()
 
 	newFields := make([]Field, len(l.fields)+len(fields))
 	copy(newFields, l.fields)
 	copy(newFields[len(l.fields):], fields)
 
-	return &StandardLogger{
+	return &StdoutLogger{
 		level:       l.level,
 		output:      l.output,
 		fields:      newFields,
-		slogHandler: l.slogHandler,
 		encoder:     l.encoder,
+		slogHandler: l.slogHandler,
+	}
+}
+
+// FileLogger methods - implements Logger interface with JSON output
+
+func (l *FileLogger) log(ctx context.Context, level Level, msg string, fields ...Field) {
+	if level < l.level {
+		return
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// Build entry with all fields
+	entry := map[string]any{
+		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+		"level":     level.String(),
+		"message":   msg,
+	}
+
+	allFields := append(l.fields, fields...)
+	for _, field := range allFields {
+		entry[field.Key] = field.Value
+	}
+
+	// Write JSON to file
+	_ = l.encoder.Encode(entry)
+}
+
+func (l *FileLogger) Debug(ctx context.Context, msg string, fields ...Field) {
+	l.log(ctx, DebugLevel, msg, fields...)
+}
+
+func (l *FileLogger) Info(ctx context.Context, msg string, fields ...Field) {
+	l.log(ctx, InfoLevel, msg, fields...)
+}
+
+func (l *FileLogger) Warn(ctx context.Context, msg string, fields ...Field) {
+	l.log(ctx, WarnLevel, msg, fields...)
+}
+
+func (l *FileLogger) Error(ctx context.Context, msg string, fields ...Field) {
+	l.log(ctx, ErrorLevel, msg, fields...)
+}
+
+func (l *FileLogger) SetLevel(level Level) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.level = level
+}
+
+func (l *FileLogger) WithFields(fields ...Field) Logger {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	newFields := make([]Field, len(l.fields)+len(fields))
+	copy(newFields, l.fields)
+	copy(newFields[len(l.fields):], fields)
+
+	return &FileLogger{
+		level:   l.level,
+		output:  l.output,
+		fields:  newFields,
+		encoder: l.encoder,
 	}
 }
