@@ -9,6 +9,7 @@ import (
 	"github.com/MatusOllah/slogcolor"
 
 	"Erebus/internal/pages"
+	"Erebus/internal/utils"
 )
 
 func main() {
@@ -20,7 +21,7 @@ func main() {
 
 	slog.Info("server started on :8080")
 
-	err := http.ListenAndServe(fmt.Sprintf(":%d", httpPort), pages.LogRequest(http.DefaultServeMux))
+	err := http.ListenAndServe(fmt.Sprintf(":%d", httpPort), utils.LogRequest(http.DefaultServeMux))
 	if err != nil {
 		slog.Error(err.Error())
 	}
