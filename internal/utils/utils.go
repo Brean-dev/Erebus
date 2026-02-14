@@ -3,9 +3,17 @@ package utils
 import (
 	guuid "github.com/google/uuid"
 
+	"Erebus/internal/logger"
 	"net/http"
+	"os"
 	"strings"
 )
+
+var log logger.Logger
+
+func init() {
+	log = logger.NewStandardLogger(os.Stdout, logger.InfoLevel)
+}
 
 func GenerateRequestID() string {
 	id := guuid.New()
@@ -31,6 +39,7 @@ func LogRequest(handler http.Handler) http.Handler {
 		if ua == "Wget" {
 			return
 		}
+
 		// --- simple scraper detection ---
 		isBot := false
 		lowerUA := strings.ToLower(ua)
@@ -67,20 +76,6 @@ func LogRequest(handler http.Handler) http.Handler {
 		)
 		reqLog.Info(ctx, "serving request")
 
-		// log.Printf("%s %s %s %s %s UA=%q Accept=%q Lang=%q Enc=%q Headers=%d CF-Connecting-IP=%s",
-		// 	tag,
-		// 	r.RemoteAddr,
-		// 	r.Method,
-		// 	r.URL.Path,
-		// 	r.Proto,
-		// 	ua,
-		// 	accept,
-		// 	lang,
-		// 	encoding,
-		// 	len(r.Header),
-		// 	cfConnectingIP,
-		// )
-		//
 		handler.ServeHTTP(w, r)
 	})
 }
