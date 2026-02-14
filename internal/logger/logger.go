@@ -67,9 +67,8 @@ func (l *StandardLogger) log(ctx context.Context, level Level, msg string,
 	}
 
 	// JSON encode the entry
-	l.encoder.Encode(entry)
+	_ = l.encoder.Encode(entry)
 }
-
 func (l *StandardLogger) Debug(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, DebugLevel, msg, fields...)
 }
