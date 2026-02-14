@@ -26,7 +26,8 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	// streaming slow response (simulate slow connection)
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "Streaming unsupported by server", http.StatusInternalServerError)
+		http.Error(w, "Streaming unsupported by server",
+			http.StatusInternalServerError)
 		return
 	}
 
@@ -115,8 +116,6 @@ func LogRequest(handler http.Handler) http.Handler {
 			return
 		}
 
-		
-
 		if ua == "Wget" {
 			return
 		}
@@ -136,12 +135,12 @@ func LogRequest(handler http.Handler) http.Handler {
 			len(r.Header) < 5 {
 			isBot = true
 		}
-		
+
 		tag := ""
 		if isBot {
 			tag = "[BOT]"
 		}
-		
+
 		log.Printf("%s %s %s %s %s UA=%q Accept=%q Lang=%q Enc=%q Headers=%d CF-Connecting-IP=%s",
 			tag,
 			r.RemoteAddr,
