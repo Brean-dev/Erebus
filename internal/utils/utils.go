@@ -74,7 +74,7 @@ func LogRequest(handler http.Handler) http.Handler {
 			logger.Field{Key: "header_len", Value: len(r.Header)},
 			logger.Field{Key: "real_ip", Value: cfConnectingIP},
 		)
-		reqLog.Info(ctx, "serving request")
+		reqLog.Info(ctx, "")
 
 		handler.ServeHTTP(w, r)
 	})
