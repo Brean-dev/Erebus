@@ -36,6 +36,9 @@ clean:
 test:
 	@echo "Testing..."
 	@go test -v ./...
+.PHONY: lint
+lint:
+	@golangci-lint run
 
 # Install dependencies
 .PHONY: deps
@@ -55,3 +58,4 @@ help:
 	@echo "  make test   - Run tests"
 	@echo "  make deps   - Install dependencies"
 	@echo "  make help   - Show this help message"
+	@echo "  make lint   - Run golangci-lint"
