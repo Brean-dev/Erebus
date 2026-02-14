@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/MatusOllah/slogcolor"
 	"log/slog"
-	"strings"
 	"time"
 )
 
@@ -72,13 +72,15 @@ func (l *StandardLogger) log(ctx context.Context, level Level, msg string,
 
 	attrs := []slog.Attr{}
 	for _, field := range l.fields {
-		strValue, ok := field.Value.(string)
-		if !ok {
-			continue
-		}
-		if strValue == "" ||
-			strings.Contains(strValue, "www.letsencrypt.org") {
-			return
+		if field.Key == "user_agent" {
+			strValue, ok := field.Value.(string)
+			if !ok {
+				continue
+			}
+			if strValue == "" ||
+				strings.Contains(strValue, "www.letsencrypt.org") {
+				return
+			}
 		}
 		if !excludedKeys[field.Key] {
 			attrs = append(attrs, slog.Any(field.Key, field.Value))
@@ -94,7 +96,7 @@ func (l *StandardLogger) log(ctx context.Context, level Level, msg string,
 	_ = l.slogHandler.Handle(ctx, record)
 
 	// Output JSON to file
-	entry := map[string]interface{}{
+	entry := map[string]any{
 		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
 		"level":     level.String(),
 		"message":   msg,
