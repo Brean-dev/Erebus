@@ -3,6 +3,7 @@ package logger
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"sync"
