@@ -1,3 +1,5 @@
+// Package logger handles the logging of Erebus
+// It creates an Encoded JSON object which it then outputs with slog
 package logger
 
 import (
