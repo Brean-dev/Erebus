@@ -58,7 +58,8 @@ func NewFileLogger(output io.Writer, level Level) *FileLogger {
 
 // StdoutLogger methods - implements Logger interface with colored output
 
-func (l *StdoutLogger) log(ctx context.Context, level Level, msg string, fields ...Field) {
+func (l *StdoutLogger) log(ctx context.Context, level Level,
+	msg string, fields ...Field) {
 	if level < l.level {
 		return
 	}
@@ -97,7 +98,8 @@ func (l *StdoutLogger) log(ctx context.Context, level Level, msg string, fields 
 			if !ok {
 				continue
 			}
-			if strValue == "" || strings.Contains(strValue, "www.letsencrypt.org") {
+			if strValue == "" ||
+				strings.Contains(strValue, "www.letsencrypt.org") {
 				return
 			}
 		}
@@ -112,19 +114,23 @@ func (l *StdoutLogger) log(ctx context.Context, level Level, msg string, fields 
 	_ = l.slogHandler.Handle(ctx, record)
 }
 
-func (l *StdoutLogger) Debug(ctx context.Context, msg string, fields ...Field) {
+func (l *StdoutLogger) Debug(ctx context.Context,
+	msg string, fields ...Field) {
 	l.log(ctx, DebugLevel, msg, fields...)
 }
 
-func (l *StdoutLogger) Info(ctx context.Context, msg string, fields ...Field) {
+func (l *StdoutLogger) Info(ctx context.Context,
+	msg string, fields ...Field) {
 	l.log(ctx, InfoLevel, msg, fields...)
 }
 
-func (l *StdoutLogger) Warn(ctx context.Context, msg string, fields ...Field) {
+func (l *StdoutLogger) Warn(ctx context.Context,
+	msg string, fields ...Field) {
 	l.log(ctx, WarnLevel, msg, fields...)
 }
 
-func (l *StdoutLogger) Error(ctx context.Context, msg string, fields ...Field) {
+func (l *StdoutLogger) Error(ctx context.Context,
+	msg string, fields ...Field) {
 	l.log(ctx, ErrorLevel, msg, fields...)
 }
 
@@ -153,7 +159,8 @@ func (l *StdoutLogger) WithFields(fields ...Field) Logger {
 
 // FileLogger methods - implements Logger interface with JSON output
 
-func (l *FileLogger) log(ctx context.Context, level Level, msg string, fields ...Field) {
+func (l *FileLogger) log(ctx context.Context, level Level,
+	msg string, fields ...Field) {
 	if level < l.level {
 		return
 	}
