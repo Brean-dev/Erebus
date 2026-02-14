@@ -6,15 +6,13 @@ services:
     container_name: erebus-app
     ports:
       - "8080:8080"
+    environment:
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    env_file:
+     - ./.env
     restart: unless-stopped
-    # Uncomment and add environment variables as needed:
-    # environment:
-    #   - ENV_VAR=value
-    #   - ANOTHER_VAR=value
-    # Or use mapping format:
-    # environment:
-    #   ENV_VAR: value
-    #   ANOTHER_VAR: value
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
       interval: 30s
@@ -25,8 +23,8 @@ services:
     image: redis:6.2-alpine
     restart: always
     ports:
-      - '6379:6379'
-    command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+      - '${REDIS_PORT}:${REDIS_PORT}'
+    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
     volumes:
       - cache:/data
 volumes:
