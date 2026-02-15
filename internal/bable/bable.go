@@ -1,5 +1,4 @@
-// Package bable is the Markov Babler algoritm
-package bable
+package main
 
 import (
 	"bufio"
@@ -9,66 +8,87 @@ import (
 	"strings"
 )
 
-// Prefix is a Markov chain prefix of one or more words.
-type Prefix []string
-
-// String returns the Prefix as a string (for use as a map key).
-func (p Prefix) String() string {
-	return strings.Join(p, " ")
-}
-
-// Shift removes the first word from the Prefix and appends the given word.
-func (p Prefix) Shift(word string) {
-	copy(p, p[1:])
-	p[len(p)-1] = word
-}
-
-// Chain contains a map ("chain") of prefixes to a list of suffixes.
-// A prefix is a string of prefixLen words joined with spaces.
-// A suffix is a single word. A prefix can have multiple suffixes.
 type Chain struct {
-	chain     map[string][]string
+	vocab     []string
+	wordToID  map[string]int
+	chain     map[uint64][]int
 	prefixLen int
 }
 
-// NewChain returns a new Chain with prefixes of prefixLen words.
+type Prefix []int
+
 func NewChain(prefixLen int) *Chain {
-	return &Chain{make(map[string][]string), prefixLen}
+	return &Chain{
+		vocab:     make([]string, 0, 1000),
+		wordToID:  make(map[string]int),
+		chain:     make(map[uint64][]int),
+		prefixLen: prefixLen,
+	}
 }
 
-// Build reads text from the provided Reader and
-// parses it into prefixes and suffixes that are stored in Chain.
-func (c *Chain) Build(r string) {
+func (chain *Chain) internWord(word string) int {
+	if id, exists := chain.wordToID[word]; exists {
+		return id
+	}
+	id := len(chain.vocab)
+	chain.vocab = append(chain.vocab, word)
+	chain.wordToID[word] = id
+	return id
+}
+
+func (chain *Chain) Build(r string) {
 	br := strings.NewReader(r)
-	p := make(Prefix, c.prefixLen)
+	p := make(Prefix, chain.prefixLen)
+
 	for {
 		var s string
 		if _, err := fmt.Fscan(br, &s); err != nil {
 			break
 		}
-		key := p.String()
-		c.chain[key] = append(c.chain[key], s)
-		p.Shift(s)
+
+		wordID := chain.internWord(s)
+		key := hashPrefix(p)
+		chain.chain[key] = append(chain.chain[key], wordID)
+		p.Shift(wordID)
 	}
 }
 
-// Generate returns a string of at most n words generated from Chain.
 func (c *Chain) Generate(n int) string {
 	p := make(Prefix, c.prefixLen)
 	var words []string
+
 	for range n {
-		choices := c.chain[p.String()]
+		key := hashPrefix(p)
+		choices := c.chain[key]
+
 		if len(choices) == 0 {
 			break
 		}
-		next := choices[rand.IntN(len(choices))]
-		words = append(words, next)
-		p.Shift(next)
+
+		nextID := choices[rand.IntN(len(choices))]
+		nextWord := c.vocab[nextID]
+		words = append(words, nextWord)
+		p.Shift(nextID)
 	}
+
 	return strings.Join(words, " ")
 }
 
-func ReadManifesto(numWords int, prefixLen int) string {
+func (p Prefix) Shift(wordID int) {
+	copy(p, p[1:])
+	p[len(p)-1] = wordID
+}
+
+func hashPrefix(wordIDs []int) uint64 {
+	var hash uint64 = 14695981039346656037
+	for _, id := range wordIDs {
+		hash ^= uint64(id)
+		hash *= 1099511628211
+	}
+	return hash
+}
+
+func ReadManifesto() string {
 	file, err := os.Open("words_manifesto")
 	if err != nil {
 		_ = fmt.Errorf("%s", err)
@@ -78,27 +98,26 @@ func ReadManifesto(numWords int, prefixLen int) string {
 			_ = fmt.Errorf("%s", err)
 		}
 	}()
+
 	var words []string
 	scanner := bufio.NewScanner(file)
-	scanner.Scan() // this moves to the next token
-	randomSection := rand.IntN(25000)
-	endSection := randomSection + numWords
-	lineCount := 0
+
 	for scanner.Scan() {
-		lineCount++
-		if lineCount >= randomSection && lineCount <= endSection {
-			words = append(words, scanner.Text())
+		word := scanner.Text()
+		if word != "" {
+			words = append(words, word)
 		}
 	}
-	stringWord := strings.Join(words, " ")
 
-	return stringWord
+	if err := scanner.Err(); err != nil {
+		_ = fmt.Errorf("error reading file: %s", err)
+	}
+	return strings.Join(words, " ")
 }
 
 func BableManifesto(numWords int, prefixLen int) string {
 	c := NewChain(prefixLen)
-	c.Build(ReadManifesto(numWords, prefixLen))
+	c.Build(ReadManifesto())
 	text := c.Generate(numWords)
-
 	return text
 }
