@@ -28,6 +28,7 @@ WORKDIR /root/
 COPY --from=builder /app/erebus .
 
 # Copy any data files if needed
+COPY --from=builder /app/html/pages/manifest.tmpl ./html/pages/manifest.tmpl
 COPY --from=builder /app/manifest ./manifest
 COPY --from=builder /app/words_manifesto ./words_manifesto
 

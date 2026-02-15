@@ -48,17 +48,17 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Title         string
-		MetaHTML      template.HTML
-		NavHTML       template.HTML
+		Title          string
+		MetaHTML       template.HTML
+		NavHTML        template.HTML
 		BreadcrumbHTML template.HTML
-		BylineHTML    template.HTML
+		BylineHTML     template.HTML
 	}{
-		Title:         title,
-		MetaHTML:      template.HTML(meta.RenderHead()),
-		NavHTML:       template.HTML(RenderNav(GenerateNavLinks())),
+		Title:          title,
+		MetaHTML:       template.HTML(meta.RenderHead()),
+		NavHTML:        template.HTML(RenderNav(GenerateNavLinks())),
 		BreadcrumbHTML: template.HTML(RenderBreadcrumbs(GenerateBreadcrumbs(r.URL.Path))),
-		BylineHTML:    template.HTML(RenderByline(meta)),
+		BylineHTML:     template.HTML(RenderByline(meta)),
 	}
 
 	err = ts.Execute(w, data)
