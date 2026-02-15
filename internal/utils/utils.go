@@ -43,41 +43,17 @@ func LogRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		userAgent := r.Header.Get("User-Agent")
-		secChUa := r.Header.Get("Sec-CH-UA")
 		accept := r.Header.Get("Accept")
 		lang := r.Header.Get("Accept-Language")
 		encoding := r.Header.Get("Accept-Encoding")
 		cfConnectingIP := r.Header.Get("CF-Connecting-IP")
 
-		// skip noisy automatic requests
-		if r.URL.Path == "/favicon.ico" || r.URL.Path == "/robots.txt" {
-			handler.ServeHTTP(w, r)
-			return
-		}
-
 		lowerUA := strings.ToLower(userAgent)
-		// otherwise docker health check will be ruining our stats
-		// and the chance someone scrapes with wget is low, i'd imagine
 		if userAgent == "" || strings.Contains(lowerUA, "wget") {
 			return
 		}
 
-		// --- simple scraper detection ---
-		isBot := userAgent == "" ||
-			strings.Contains(lowerUA, "curl") ||
-			strings.Contains(lowerUA, "python") ||
-			strings.Contains(lowerUA, "scrapy") ||
-			strings.Contains(lowerUA, "httpclient") ||
-			strings.Contains(lowerUA, "go-http-client") ||
-			strings.Contains(lowerUA, "httpx") ||
-			strings.Contains(lowerUA, "bot") ||
-			secChUa == "" ||
-			!strings.HasPrefix(userAgent, "Mozilla/5.0") ||
-			len(r.Header) < 5
-
-		bot := isBot
 		reqLog := log.WithFields(
-			logger.Field{Key: "bot", Value: bot},
 			logger.Field{Key: "remote_addr", Value: r.RemoteAddr},
 			logger.Field{Key: "method", Value: r.Method},
 			logger.Field{Key: "remote_path", Value: r.URL.Path},
