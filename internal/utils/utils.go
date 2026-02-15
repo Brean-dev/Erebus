@@ -20,16 +20,6 @@ func init() {
 	if dirErr != nil {
 		_ = fmt.Errorf("%s", dirErr)
 	}
-	consoleLog := logger.NewStdoutLogger(os.Stdout, logger.InfoLevel)
-	todayLogFile := time.Now()
-	logFile, logFileError = os.OpenFile(fmt.Sprintf("/logs/app_%s.log",
-		todayLogFile.Format("2006-01-02")), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if logFileError != nil {
-		_ = fmt.Errorf("%s", logFileError)
-	}
-
-	fileLog := logger.NewFileLogger(logFile, logger.InfoLevel)
-	log = logger.NewMultiLogger(consoleLog, fileLog)
 }
 
 func GenerateRequestID() string {
@@ -38,6 +28,17 @@ func GenerateRequestID() string {
 }
 
 func LogRequest(handler http.Handler) http.Handler {
+	consoleLog := logger.NewStdoutLogger(os.Stdout, logger.InfoLevel)
+	todayLogFile := time.Now()
+	logFile, logFileError = os.OpenFile(fmt.Sprintf("/logs/app_%s.log",
+		todayLogFile.Format("2006-01-02")),
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if logFileError != nil {
+		_ = fmt.Errorf("%s", logFileError)
+	}
+
+	fileLog := logger.NewFileLogger(logFile, logger.InfoLevel)
+	log = logger.NewMultiLogger(consoleLog, fileLog)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		ua := r.Header.Get("User-Agent")
