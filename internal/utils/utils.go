@@ -56,6 +56,8 @@ func LogRequest(handler http.Handler) http.Handler {
 		}
 
 		lowerUA := strings.ToLower(userAgent)
+		// otherwise docker health check will be ruining our stats
+		// and the chance someone scrapes with wget is low, i'd imagine
 		if userAgent == "" || strings.Contains(lowerUA, "wget") {
 			return
 		}
@@ -73,12 +75,9 @@ func LogRequest(handler http.Handler) http.Handler {
 			!strings.HasPrefix(userAgent, "Mozilla/5.0") ||
 			len(r.Header) < 5
 
-		tag := ""
-		if isBot {
-			tag = "[BOT]"
-		}
+		bot := isBot
 		reqLog := log.WithFields(
-			logger.Field{Key: "tag", Value: tag},
+			logger.Field{Key: "bot", Value: bot},
 			logger.Field{Key: "remote_addr", Value: r.RemoteAddr},
 			logger.Field{Key: "method", Value: r.Method},
 			logger.Field{Key: "remote_path", Value: r.URL.Path},
