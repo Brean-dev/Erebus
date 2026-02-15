@@ -17,7 +17,9 @@ func main() {
 
 	slog.SetDefault(slog.New(slogcolor.NewHandler(os.Stderr,
 		slogcolor.DefaultOptions)))
-	// Use a catch-all handler that responds to all endpoints
+	http.HandleFunc("/robots.txt", pages.RobotsHandler)
+	http.HandleFunc("/sitemap.xml", pages.SitemapHandler)
+	// Catch-all handler that responds to all other endpoints
 	http.HandleFunc("/", pages.GenerateHandler)
 
 	slog.Info("server started on :8080")

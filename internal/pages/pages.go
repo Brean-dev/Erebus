@@ -1,4 +1,4 @@
-// Package pages will have all the logic for serving the pages
+// Package pages has all the logic for serving the pages.
 package pages
 
 import (
@@ -6,7 +6,7 @@ import (
 	"html"
 	"html/template"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 	"time"
@@ -14,18 +14,10 @@ import (
 	"Erebus/internal/bable"
 )
 
+// GenerateHandler serves dynamically generated tarpit pages.
 func GenerateHandler(w http.ResponseWriter, r *http.Request) {
+	generatedText := bable.Bable(50, 5)
 
-	wordCount := 50
-	prefixLen := 5
-
-	link1 := bable.Bable(1, 1)
-	link2 := bable.Bable(1, 1)
-	link3 := bable.Bable(1, 1)
-	link4 := bable.Bable(1, 1)
-	generatedText := bable.Bable(wordCount, prefixLen)
-
-	// streaming slow response (simulate slow connection)
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported by server",
@@ -33,14 +25,21 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Prevent some reverse proxies from buffering (Nginx)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 
-	stringTitle := strings.Fields(generatedText)[0]
+	// Build a multi-word title from the generated text
+	titleWords := strings.Fields(generatedText)
+	titleLen := 3 + rand.IntN(4)
+	if titleLen > len(titleWords) {
+		titleLen = len(titleWords)
+	}
+	title := strings.Join(titleWords[:titleLen], " ")
 
-	// Parse and execute template with data
+	// Generate page metadata
+	meta := GenerateMeta(title, generatedText, r.URL.Path)
+
 	ts, err := template.ParseFiles("./html/pages/manifest.tmpl")
 	if err != nil {
 		log.Printf("error reading template: %s", err.Error())
@@ -48,11 +47,18 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Prepare template data
 	data := struct {
-		Title string
+		Title         string
+		MetaHTML      template.HTML
+		NavHTML       template.HTML
+		BreadcrumbHTML template.HTML
+		BylineHTML    template.HTML
 	}{
-		Title: stringTitle,
+		Title:         title,
+		MetaHTML:      template.HTML(meta.RenderHead()),
+		NavHTML:       template.HTML(RenderNav(GenerateNavLinks())),
+		BreadcrumbHTML: template.HTML(RenderBreadcrumbs(GenerateBreadcrumbs(r.URL.Path))),
+		BylineHTML:    template.HTML(RenderByline(meta)),
 	}
 
 	err = ts.Execute(w, data)
@@ -61,38 +67,86 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	flusher.Flush()
 
-	words := strings.Fields(generatedText)
+	// Stream main content slowly
+	streamWords(w, flusher, r, strings.Fields(generatedText))
 
-	// Simulate slow connection with variable chunk sizes and delays
+	// Close the streamed paragraph and text div
+	_, _ = fmt.Fprint(w, `</p></div>`)
+	flusher.Flush()
+
+	// Generate and write sub-sections with headings
+	sectionCount := 2 + rand.IntN(3)
+	sections := GenerateSections(sectionCount)
+	_, _ = fmt.Fprint(w, RenderSections(sections))
+	flusher.Flush()
+
+	// Article links
+	articleLinks := GenerateLinks(8 + rand.IntN(5))
+	_, _ = fmt.Fprint(w, `<ul class="article-links">`)
+	for _, l := range articleLinks {
+		_, _ = fmt.Fprintf(w, `<li><a href="%s">%s</a></li>`,
+			l.URL, html.EscapeString(l.Text))
+	}
+	_, _ = fmt.Fprint(w, `</ul>`)
+	flusher.Flush()
+
+	// Pagination
+	basePath := r.URL.Path
+	if basePath == "/" {
+		basePath = "/articles"
+	}
+	pagination := GeneratePaginationLinks(basePath)
+	_, _ = fmt.Fprint(w, `<nav class="pagination">`)
+	for _, p := range pagination {
+		_, _ = fmt.Fprintf(w, `<a href="%s">%s</a>`, p.URL, html.EscapeString(p.Text))
+	}
+	_, _ = fmt.Fprint(w, `</nav>`)
+
+	// Close content div
+	_, _ = fmt.Fprint(w, `</div>`)
+	flusher.Flush()
+
+	// Sidebar
+	sidebarLinks := GenerateLinks(5 + rand.IntN(3))
+	_, _ = fmt.Fprint(w, RenderSidebar(sidebarLinks))
+
+	// Close layout div
+	_, _ = fmt.Fprint(w, `</div>`)
+	flusher.Flush()
+
+	// Footer
+	footerLinks := GenerateLinks(8 + rand.IntN(4))
+	_, _ = fmt.Fprint(w, RenderFooter(footerLinks))
+
+	_, _ = fmt.Fprint(w, `</body></html>`)
+	flusher.Flush()
+}
+
+func streamWords(w http.ResponseWriter, flusher http.Flusher, r *http.Request, words []string) {
 	i := 0
 	for i < len(words) {
 		select {
 		case <-r.Context().Done():
-			// client disconnected, stop work
 			return
 		default:
-			// Variable chunk size: 1-8 words at a time
-			chunkSize := 1 + rand.Intn(8)
+			chunkSize := 1 + rand.IntN(8)
 			if i+chunkSize > len(words) {
 				chunkSize = len(words) - i
 			}
 
-			// Send the chunk
 			chunk := words[i : i+chunkSize]
 			_, _ = fmt.Fprint(w, html.EscapeString(strings.Join(chunk, " "))+" ")
 			flusher.Flush()
 
 			i += chunkSize
 
-			// Variable delay: 20-200ms with occasional longer pauses (300-500ms)
 			var delay time.Duration
-			if rand.Float32() < 0.15 { // 15% chance of longer pause (network congestion)
-				delay = time.Duration(300+rand.Intn(200)) * time.Millisecond
+			if rand.Float32() < 0.15 {
+				delay = time.Duration(300+rand.IntN(200)) * time.Millisecond
 			} else {
-				delay = time.Duration(20+rand.Intn(180)) * time.Millisecond
+				delay = time.Duration(20+rand.IntN(180)) * time.Millisecond
 			}
 
 			if i < len(words) {
@@ -100,20 +154,4 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
-	// close the text div and add links
-	_, _ = fmt.Fprintf(w, `</p></div>
-    <ul>
-        <li><a href="/%s">%s</a></li>
-        <li><a href="/%s">%s</a></li>
-        <li><a href="/%s">%s</a></li>
-        <li><a href="/%s">%s</a></li>
-    </ul>
-    </div>
-</body></html>`,
-		link1, link1,
-		link2, link2,
-		link3, link3,
-		link4, link4)
-	flusher.Flush()
 }
