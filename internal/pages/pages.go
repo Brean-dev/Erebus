@@ -109,6 +109,7 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
         <li><a href="/%s">%s</a></li>
         <li><a href="/%s">%s</a></li>
     </ul>
+    </div>
 </body></html>`,
 		link1, link1,
 		link2, link2,
