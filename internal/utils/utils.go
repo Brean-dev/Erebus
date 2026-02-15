@@ -28,7 +28,6 @@ func GenerateRequestID() string {
 }
 
 func LogRequest(handler http.Handler) http.Handler {
-	consoleLog := logger.NewStdoutLogger(os.Stdout, logger.InfoLevel)
 	todayLogFile := time.Now()
 	logFile, logFileError = os.OpenFile(fmt.Sprintf("/logs/app_%s.log",
 		todayLogFile.Format("2006-01-02")),
@@ -37,11 +36,13 @@ func LogRequest(handler http.Handler) http.Handler {
 		_ = fmt.Errorf("%s", logFileError)
 	}
 
+	consoleLog := logger.NewStdoutLogger(os.Stdout, logger.InfoLevel)
 	fileLog := logger.NewFileLogger(logFile, logger.InfoLevel)
 	log = logger.NewMultiLogger(consoleLog, fileLog)
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		ua := r.Header.Get("User-Agent")
+		userAgent := r.Header.Get("User-Agent")
 		secChUa := r.Header.Get("Sec-CH-UA")
 		accept := r.Header.Get("Accept")
 		lang := r.Header.Get("Accept-Language")
@@ -54,13 +55,13 @@ func LogRequest(handler http.Handler) http.Handler {
 			return
 		}
 
-		lowerUA := strings.ToLower(ua)
-		if ua == "" || strings.Contains(lowerUA, "wget") {
+		lowerUA := strings.ToLower(userAgent)
+		if userAgent == "" || strings.Contains(lowerUA, "wget") {
 			return
 		}
 
 		// --- simple scraper detection ---
-		isBot := ua == "" ||
+		isBot := userAgent == "" ||
 			strings.Contains(lowerUA, "curl") ||
 			strings.Contains(lowerUA, "python") ||
 			strings.Contains(lowerUA, "scrapy") ||
@@ -69,7 +70,7 @@ func LogRequest(handler http.Handler) http.Handler {
 			strings.Contains(lowerUA, "httpx") ||
 			strings.Contains(lowerUA, "bot") ||
 			secChUa == "" ||
-			!strings.HasPrefix(ua, "Mozilla/5.0") ||
+			!strings.HasPrefix(userAgent, "Mozilla/5.0") ||
 			len(r.Header) < 5
 
 		tag := ""
@@ -82,7 +83,7 @@ func LogRequest(handler http.Handler) http.Handler {
 			logger.Field{Key: "method", Value: r.Method},
 			logger.Field{Key: "remote_path", Value: r.URL.Path},
 			logger.Field{Key: "proto", Value: r.Proto},
-			logger.Field{Key: "user_agent", Value: ua},
+			logger.Field{Key: "user_agent", Value: userAgent},
 			logger.Field{Key: "accept", Value: accept},
 			logger.Field{Key: "lang", Value: lang},
 			logger.Field{Key: "encoding", Value: encoding},
