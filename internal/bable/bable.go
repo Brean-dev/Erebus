@@ -1,10 +1,11 @@
-package main
+package bable
 
 import (
 	"bufio"
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -16,6 +17,11 @@ type Chain struct {
 }
 
 type Prefix []int
+
+const (
+	startToken = "<START>"
+	endToken   = "<END>"
+)
 
 func NewChain(prefixLen int) *Chain {
 	return &Chain{
@@ -37,27 +43,97 @@ func (chain *Chain) internWord(word string) int {
 }
 
 func (chain *Chain) Build(r string) {
-	br := strings.NewReader(r)
-	p := make(Prefix, chain.prefixLen)
+	sentences := splitIntoSentences(r)
 
-	for {
-		var s string
-		if _, err := fmt.Fscan(br, &s); err != nil {
-			break
+	for _, sentence := range sentences {
+		tokens := tokenize(sentence)
+		if len(tokens) == 0 {
+			continue
 		}
 
-		wordID := chain.internWord(s)
+		p := make(Prefix, chain.prefixLen)
+
+		startID := chain.internWord(startToken)
+		for i := 0; i < chain.prefixLen; i++ {
+			p[i] = startID
+		}
+
+		for _, token := range tokens {
+			tokenID := chain.internWord(token)
+			key := hashPrefix(p)
+			chain.chain[key] = append(chain.chain[key], tokenID)
+			p.Shift(tokenID)
+		}
+
+		endID := chain.internWord(endToken)
 		key := hashPrefix(p)
-		chain.chain[key] = append(chain.chain[key], wordID)
-		p.Shift(wordID)
+		chain.chain[key] = append(chain.chain[key], endID)
 	}
 }
 
-func (c *Chain) Generate(n int) string {
-	p := make(Prefix, c.prefixLen)
-	var words []string
+func splitIntoSentences(text string) []string {
+	// Split on sentence-ending punctuation
+	re := regexp.MustCompile(`[.!?]+[\s\n]+`)
+	sentences := re.Split(text, -1)
 
-	for range n {
+	var cleaned []string
+	for _, s := range sentences {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			cleaned = append(cleaned, s)
+		}
+	}
+	return cleaned
+}
+
+var tokenizeRe = regexp.MustCompile(`[\w']+|[,;:\-\(\)\"]+`)
+
+// tokenize splits text into individual words and punctuation tokens.
+// Punctuation is separated from words so the chain learns word-level
+// transitions and where punctuation naturally appears.
+func tokenize(text string) []string {
+	return tokenizeRe.FindAllString(text, -1)
+}
+
+func isPunctuation(s string) bool {
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '\'' {
+			return false
+		}
+	}
+	return true
+}
+
+// GenerateSentences produces complete sentences using START/END tokens.
+func (c *Chain) GenerateSentences(numSentences int) string {
+	var sentences []string
+
+	for range numSentences {
+		sentence := c.generateOneSentence()
+		if sentence != "" {
+			sentences = append(sentences, sentence)
+		}
+	}
+
+	return strings.Join(sentences, " ")
+}
+
+func (c *Chain) generateOneSentence() string {
+	p := make(Prefix, c.prefixLen)
+
+	startID, hasStart := c.wordToID[startToken]
+	if !hasStart {
+		return ""
+	}
+
+	for i := 0; i < c.prefixLen; i++ {
+		p[i] = startID
+	}
+
+	var tokens []string
+	maxTokens := 100
+
+	for len(tokens) < maxTokens {
 		key := hashPrefix(p)
 		choices := c.chain[key]
 
@@ -66,12 +142,37 @@ func (c *Chain) Generate(n int) string {
 		}
 
 		nextID := choices[rand.IntN(len(choices))]
-		nextWord := c.vocab[nextID]
-		words = append(words, nextWord)
+		nextToken := c.vocab[nextID]
+
+		if nextToken == endToken || nextToken == startToken {
+			break
+		}
+
+		tokens = append(tokens, nextToken)
 		p.Shift(nextID)
 	}
 
-	return strings.Join(words, " ")
+	return joinTokens(tokens)
+}
+
+// joinTokens reassembles tokens into text, attaching punctuation
+// directly to the preceding word without a space.
+func joinTokens(tokens []string) string {
+	if len(tokens) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString(tokens[0])
+
+	for _, token := range tokens[1:] {
+		if !isPunctuation(token) {
+			b.WriteByte(' ')
+		}
+		b.WriteString(token)
+	}
+
+	return b.String()
 }
 
 func (p Prefix) Shift(wordID int) {
@@ -89,13 +190,14 @@ func hashPrefix(wordIDs []int) uint64 {
 }
 
 func ReadManifesto() string {
-	file, err := os.Open("words_manifesto")
+	file, err := os.Open("manifest")
 	if err != nil {
-		_ = fmt.Errorf("%s", err)
+		fmt.Printf("error opening file: %s\n", err)
+		return ""
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			_ = fmt.Errorf("%s", err)
+			fmt.Printf("error closing file: %s\n", err)
 		}
 	}()
 
@@ -110,14 +212,18 @@ func ReadManifesto() string {
 	}
 
 	if err := scanner.Err(); err != nil {
-		_ = fmt.Errorf("error reading file: %s", err)
+		fmt.Printf("error reading file: %s\n", err)
 	}
+
 	return strings.Join(words, " ")
 }
 
-func BableManifesto(numWords int, prefixLen int) string {
+func Bable(numSentences int, prefixLen int) string {
 	c := NewChain(prefixLen)
 	c.Build(ReadManifesto())
-	text := c.Generate(numWords)
+
+	// Use the new sentence generator
+	text := c.GenerateSentences(numSentences)
+
 	return text
 }

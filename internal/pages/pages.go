@@ -13,14 +13,14 @@ import (
 )
 
 func GenerateHandler(w http.ResponseWriter, r *http.Request) {
-	wordCount := 1000
+	wordCount := 50
 	prefixLen := 5
 
-	link1 := bable.BableManifesto(1, 1)
-	link2 := bable.BableManifesto(1, 1)
-	link3 := bable.BableManifesto(1, 1)
-	link4 := bable.BableManifesto(1, 1)
-	generatedText := bable.BableManifesto(wordCount, prefixLen)
+	link1 := bable.Bable(1, 1)
+	link2 := bable.Bable(1, 1)
+	link3 := bable.Bable(1, 1)
+	link4 := bable.Bable(1, 1)
+	generatedText := bable.Bable(wordCount, prefixLen)
 
 	// streaming slow response (simulate slow connection)
 	flusher, ok := w.(http.Flusher)
