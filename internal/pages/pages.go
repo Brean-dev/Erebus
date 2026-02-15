@@ -4,6 +4,8 @@ package pages
 import (
 	"fmt"
 	"html"
+	"html/template"
+	"log"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -13,6 +15,7 @@ import (
 )
 
 func GenerateHandler(w http.ResponseWriter, r *http.Request) {
+
 	wordCount := 50
 	prefixLen := 5
 
@@ -34,21 +37,31 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+
 	stringTitle := strings.Fields(generatedText)[0]
-	// Write initial HTML skeleton and flush so the browser starts rendering
-	_, _ = fmt.Fprint(w, `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>`+stringTitle+`</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .text-1 { background-color: #f0f0f0; padding: 20px; border-radius: 5px; margin: 20px 0; }
-        ul { margin: 20px 0; }
-    </style>
-</head>
-<body>
-    <div class="text-1"><p>`)
+
+	// Parse and execute template with data
+	ts, err := template.ParseFiles("./html/pages/manifest.tmpl")
+	if err != nil {
+		log.Printf("error reading template: %s", err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Prepare template data
+	data := struct {
+		Title string
+	}{
+		Title: stringTitle,
+	}
+
+	err = ts.Execute(w, data)
+	if err != nil {
+		log.Printf("error executing template: %s", err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	flusher.Flush()
 
 	words := strings.Fields(generatedText)
@@ -89,13 +102,17 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// close the text div and add links
-	_, _ = fmt.Fprint(w, `</p></div>
+	_, _ = fmt.Fprintf(w, `</p></div>
     <ul>
-        <li><a href="/`+link1+`">`+link1+`</a></li>
-        <li><a href="/`+link2+`">`+link2+`</a></li>
-        <li><a href="/`+link3+`">`+link3+`</a></li>
-        <li><a href="/`+link4+`">`+link4+`</a></li>
+        <li><a href="/%s">%s</a></li>
+        <li><a href="/%s">%s</a></li>
+        <li><a href="/%s">%s</a></li>
+        <li><a href="/%s">%s</a></li>
     </ul>
-</body></html>`)
+</body></html>`,
+		link1, link1,
+		link2, link2,
+		link3, link3,
+		link4, link4)
 	flusher.Flush()
 }
