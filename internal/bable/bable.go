@@ -69,18 +69,17 @@ func (c *Chain) Generate(n int) string {
 }
 
 func ReadManifesto(numWords int, prefixLen int) string {
-	fi, err := os.Open("words_manifesto")
+	file, err := os.Open("words_manifesto")
 	if err != nil {
-		panic(err)
+		_ = fmt.Errorf("%s", err)
 	}
 	defer func() {
-		if err := fi.Close(); err != nil {
-			panic(err)
+		if err := file.Close(); err != nil {
+			_ = fmt.Errorf("%s", err)
 		}
 	}()
-
 	var words []string
-	scanner := bufio.NewScanner(fi)
+	scanner := bufio.NewScanner(file)
 	scanner.Scan() // this moves to the next token
 	randomSection := rand.IntN(25000)
 	endSection := randomSection + numWords
