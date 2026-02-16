@@ -46,6 +46,7 @@ func LogRequest(handler http.Handler) http.Handler {
 		accept := r.Header.Get("Accept")
 		lang := r.Header.Get("Accept-Language")
 		encoding := r.Header.Get("Accept-Encoding")
+		//nolint:canonicalheader //cannot change header
 		cfConnectingIP := r.Header.Get("CF-Connecting-IP")
 
 		lowerUA := strings.ToLower(userAgent)

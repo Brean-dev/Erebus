@@ -16,7 +16,7 @@ func RobotsHandler(w http.ResponseWriter, r *http.Request) {
 	baseURL := fmt.Sprintf("%s://%s", scheme, host)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintf(w, `User-agent: *
+	_, _ = fmt.Fprintf(w, `User-agent: *
 Disallow: /admin/
 Disallow: /admin/dashboard/
 Disallow: /private/

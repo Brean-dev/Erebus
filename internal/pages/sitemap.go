@@ -71,8 +71,14 @@ func SitemapHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
-	w.Write([]byte(xml.Header))
+	_, err := w.Write([]byte(xml.Header))
+	if err != nil {
+		_ = fmt.Errorf("error: %s", err)
+	}
 	enc := xml.NewEncoder(w)
 	enc.Indent("", "  ")
-	enc.Encode(sitemap)
+	err = enc.Encode(sitemap)
+	if err != nil {
+		_ = fmt.Errorf("error: %s", err)
+	}
 }
