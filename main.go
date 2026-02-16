@@ -31,7 +31,7 @@ func main() {
 		Addr:              fmt.Sprintf(":%d", httpPort),
 		Handler:           utils.LogRequest(http.DefaultServeMux),
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		WriteTimeout:      120 * time.Second,
 		IdleTimeout:       60 * time.Second,
 		ReadHeaderTimeout: 15 * time.Second,
 	}
