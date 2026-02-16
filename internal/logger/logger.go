@@ -34,7 +34,8 @@ type FileLogger struct {
 	encoder *json.Encoder
 }
 
-// NewStdoutLogger creates a StdoutLogger that writes colored output to the given writer.
+// NewStdoutLogger creates a StdoutLogger
+// that writes colored output to the given writer.
 func NewStdoutLogger(output io.Writer, level Level) *StdoutLogger {
 
 	if output == nil {
@@ -49,7 +50,8 @@ func NewStdoutLogger(output io.Writer, level Level) *StdoutLogger {
 	}
 }
 
-// NewFileLogger creates a FileLogger that writes JSON output to the given writer.
+// NewFileLogger creates a FileLogger that
+// writes JSON output to the given writer.
 func NewFileLogger(output io.Writer, level Level) *FileLogger {
 
 	return &FileLogger{
@@ -150,7 +152,8 @@ func (l *StdoutLogger) SetLevel(level Level) {
 	l.level = level
 }
 
-// WithFields returns a new logger with the given fields attached to every entry.
+// WithFields returns a new logger
+// with the given fields attached to every entry.
 func (l *StdoutLogger) WithFields(fields ...Field) Logger {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -224,6 +227,7 @@ func (l *FileLogger) Warn(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, WarnLevel, msg, fields...)
 }
 
+// Error logs a message at error level.
 func (l *FileLogger) Error(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, ErrorLevel, msg, fields...)
 }
@@ -235,7 +239,8 @@ func (l *FileLogger) SetLevel(level Level) {
 	l.level = level
 }
 
-// WithFields returns a new logger with the given fields attached to every entry.
+// WithFields returns a new logger
+// with the given fields attached to every entry.
 func (l *FileLogger) WithFields(fields ...Field) Logger {
 	l.mu.Lock()
 	defer l.mu.Unlock()

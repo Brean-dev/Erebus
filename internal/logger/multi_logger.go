@@ -46,7 +46,8 @@ func (m *MultiLogger) SetLevel(level Level) {
 	}
 }
 
-// WithFields returns a new MultiLogger with the given fields attached to every logger.
+// WithFields returns a new MultiLogger
+// with the given fields attached to every logger.
 func (m *MultiLogger) WithFields(fields ...Field) Logger {
 	newLoggers := make([]Logger, len(m.loggers))
 	for i, logger := range m.loggers {
