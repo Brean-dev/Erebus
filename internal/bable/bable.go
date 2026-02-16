@@ -91,10 +91,12 @@ var tokenizeRe = regexp.MustCompile(`[\w']+|[,;:\-\(\)\"]+`)
 // tokenize splits text into individual words and punctuation tokens.
 // Punctuation is separated from words so the chain learns word-level
 // transitions and where punctuation naturally appears.
+// It's just a regex though
 func tokenize(text string) []string {
 	return tokenizeRe.FindAllString(text, -1)
 }
 
+// Does what it says on the tin, checks if the current character is a punctuation
 func isPunctuation(s string) bool {
 	for _, r := range s {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
