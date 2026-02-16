@@ -1,3 +1,5 @@
+// Package main this is the entry point of Erebus
+// a tarpit for llm scrapers written in golang
 package main
 
 import (
