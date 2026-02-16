@@ -9,10 +9,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/MatusOllah/slogcolor"
-
 	"Erebus/internal/pages"
+	cache "Erebus/internal/rediscache"
 	"Erebus/internal/utils"
+	"github.com/MatusOllah/slogcolor"
 )
 
 func main() {
@@ -26,7 +26,6 @@ func main() {
 	http.HandleFunc("/", pages.GenerateHandler)
 
 	slog.Info("server started on :8080")
-
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", httpPort),
 		Handler:           utils.LogRequest(http.DefaultServeMux),
@@ -36,8 +35,12 @@ func main() {
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 
+	RedisClient := cache.ConnectRedis()
+	cache.TestRedisConnection(RedisClient)
+
 	err := server.ListenAndServe()
 	if err != nil {
 		slog.Error(err.Error())
 	}
+
 }
