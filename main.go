@@ -13,10 +13,9 @@ import (
 	cache "Erebus/internal/rediscache"
 	"Erebus/internal/utils"
 	"github.com/MatusOllah/slogcolor"
-	"github.com/redis/go-redis/v9"
 )
 
-var RedisClient *redis.Client
+var RedisClient *cache.RedisClient
 
 func main() {
 	httpPort := 8080
@@ -37,11 +36,21 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 		ReadHeaderTimeout: 15 * time.Second,
 	}
-
-	cache.ConnectRedis()
-	err := server.ListenAndServe()
+	var redisError error
+	RedisClient, redisError = cache.NewRedisClient()
+	if redisError != nil {
+		slog.Error(redisError.Error())
+	}
+	pong, err := RedisClient.TestRedisConnection()
 	if err != nil {
 		slog.Error(err.Error())
+	} else {
+		slog.Info("", "ping", pong)
+	}
+
+	serveErr := server.ListenAndServe()
+	if serveErr != nil {
+		slog.Error(serveErr.Error())
 	}
 
 }
