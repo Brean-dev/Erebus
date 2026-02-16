@@ -30,6 +30,7 @@ func SitemapHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
 
+	// nolint:gosec //This rand package is fine
 	urlCount := 50 + rand.IntN(51) // 50-100 URLs
 	urls := make([]siteURL, 0, urlCount)
 
@@ -55,11 +56,13 @@ func SitemapHandler(w http.ResponseWriter, r *http.Request) {
 	freqs := []string{"daily", "weekly", "monthly"}
 	for len(urls) < urlCount {
 		link := generateOneLink()
+		//nolint:gosec // this rand package is fine
 		priority := fmt.Sprintf("%.1f", 0.5+rand.Float64()*0.4)
 
 		urls = append(urls, siteURL{
-			Loc:        baseURL + link.URL,
-			LastMod:    GenerateRecentDate().Format("2006-01-02"),
+			Loc:     baseURL + link.URL,
+			LastMod: GenerateRecentDate().Format("2006-01-02"),
+			//nolint:gosec // this rand package is fine
 			ChangeFreq: freqs[rand.IntN(len(freqs))],
 			Priority:   priority,
 		})
@@ -73,12 +76,12 @@ func SitemapHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	_, err := w.Write([]byte(xml.Header))
 	if err != nil {
-		_ = fmt.Errorf("error: %s", err)
+		_ = fmt.Errorf("error: %w", err)
 	}
 	enc := xml.NewEncoder(w)
 	enc.Indent("", "  ")
 	err = enc.Encode(sitemap)
 	if err != nil {
-		_ = fmt.Errorf("error: %s", err)
+		_ = fmt.Errorf("error: %w", err)
 	}
 }
