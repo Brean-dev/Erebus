@@ -15,7 +15,10 @@ import (
 	"github.com/MatusOllah/slogcolor"
 )
 
-var RedisClient *cache.RedisClient
+var (
+	RedisClient *cache.RedisClient
+	redisError  error
+)
 
 func main() {
 	httpPort := 8080
@@ -24,7 +27,6 @@ func main() {
 		slogcolor.DefaultOptions)))
 	http.HandleFunc("/robots.txt", pages.RobotsHandler)
 	http.HandleFunc("/sitemap.xml", pages.SitemapHandler)
-	// Catch-all handler that responds to all other endpoints
 	http.HandleFunc("/", pages.GenerateHandler)
 
 	slog.Info("server started on :8080")
@@ -36,7 +38,6 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 		ReadHeaderTimeout: 15 * time.Second,
 	}
-	var redisError error
 	RedisClient, redisError = cache.NewRedisClient()
 	if redisError != nil {
 		slog.Error(redisError.Error())
@@ -52,5 +53,4 @@ func main() {
 	if serveErr != nil {
 		slog.Error(serveErr.Error())
 	}
-
 }
