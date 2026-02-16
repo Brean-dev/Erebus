@@ -1,3 +1,4 @@
+// Package bable provides Markov chain text generation functionality.
 package bable
 
 import (
@@ -9,6 +10,7 @@ import (
 	"strings"
 )
 
+// Chain is a Markov chain text generator.
 type Chain struct {
 	vocab     []string
 	wordToID  map[string]int
@@ -16,6 +18,7 @@ type Chain struct {
 	prefixLen int
 }
 
+// Prefix represents a word ID prefix used in the Markov chain.
 type Prefix []int
 
 const (
@@ -23,6 +26,7 @@ const (
 	endToken   = "<END>"
 )
 
+// NewChain creates a new Markov chain with the specified prefix length.
 func NewChain(prefixLen int) *Chain {
 	return &Chain{
 		vocab:     make([]string, 0, 1000),
@@ -42,6 +46,7 @@ func (chain *Chain) internWord(word string) int {
 	return id
 }
 
+// Build processes text into the Markov chain.
 func (chain *Chain) Build(r string) {
 	sentences := splitIntoSentences(r)
 
@@ -91,12 +96,12 @@ var tokenizeRe = regexp.MustCompile(`[\w']+|[,;:\-\(\)\"]+`)
 // tokenize splits text into individual words and punctuation tokens.
 // Punctuation is separated from words so the chain learns word-level
 // transitions and where punctuation naturally appears.
-// It's just a regex though
+// It's just a regex though.
 func tokenize(text string) []string {
 	return tokenizeRe.FindAllString(text, -1)
 }
 
-// Does what it says on the tin, checks if the current character is a punctuation
+// isPunctuation checks if the current string is a punctuation token.
 func isPunctuation(s string) bool {
 	for _, r := range s {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
@@ -108,11 +113,11 @@ func isPunctuation(s string) bool {
 }
 
 // GenerateSentences produces complete sentences using START/END tokens.
-func (c *Chain) GenerateSentences(numSentences int) string {
+func (chain *Chain) GenerateSentences(numSentences int) string {
 	var sentences []string
 
 	for range numSentences {
-		sentence := c.generateOneSentence()
+		sentence := chain.generateOneSentence()
 		if sentence != "" {
 			sentences = append(sentences, sentence)
 		}
@@ -121,15 +126,15 @@ func (c *Chain) GenerateSentences(numSentences int) string {
 	return strings.Join(sentences, " ")
 }
 
-func (c *Chain) generateOneSentence() string {
-	p := make(Prefix, c.prefixLen)
+func (chain *Chain) generateOneSentence() string {
+	p := make(Prefix, chain.prefixLen)
 
-	startID, hasStart := c.wordToID[startToken]
+	startID, hasStart := chain.wordToID[startToken]
 	if !hasStart {
 		return ""
 	}
 
-	for i := 0; i < c.prefixLen; i++ {
+	for i := 0; i < chain.prefixLen; i++ {
 		p[i] = startID
 	}
 
@@ -138,14 +143,14 @@ func (c *Chain) generateOneSentence() string {
 
 	for len(tokens) < maxTokens {
 		key := hashPrefix(p)
-		choices := c.chain[key]
+		choices := chain.chain[key]
 
 		if len(choices) == 0 {
 			break
 		}
 
-		nextID := choices[rand.IntN(len(choices))]
-		nextToken := c.vocab[nextID]
+		nextID := choices[rand.IntN(len(choices))]  //nolint:gosec
+		nextToken := chain.vocab[nextID]
 
 		if nextToken == endToken || nextToken == startToken {
 			break
@@ -178,6 +183,7 @@ func joinTokens(tokens []string) string {
 	return b.String()
 }
 
+// Shift removes the first element and appends wordID to the end.
 func (p Prefix) Shift(wordID int) {
 	copy(p, p[1:])
 	p[len(p)-1] = wordID
@@ -186,12 +192,13 @@ func (p Prefix) Shift(wordID int) {
 func hashPrefix(wordIDs []int) uint64 {
 	var hash uint64 = 14695981039346656037
 	for _, id := range wordIDs {
-		hash ^= uint64(id)
+		hash ^= uint64(id) //nolint:gosec
 		hash *= 1099511628211
 	}
 	return hash
 }
 
+// ReadManifesto reads the manifest file and returns its contents as a single string.
 func ReadManifesto() string {
 	file, err := os.Open("manifest")
 	if err != nil {
@@ -221,6 +228,7 @@ func ReadManifesto() string {
 	return strings.Join(words, " ")
 }
 
+// Bable generates random text by building a Markov chain from the manifesto.
 func Bable(numSentences int, prefixLen int) string {
 	c := NewChain(prefixLen)
 	c.Build(ReadManifesto())

@@ -3,8 +3,10 @@ package logger
 
 import "context"
 
+// Level represents the severity of a log message.
 type Level int
 
+// Log severity levels from least to most severe.
 const (
 	DebugLevel Level = iota
 	InfoLevel
@@ -27,6 +29,7 @@ func (l Level) String() string {
 	}
 }
 
+// Logger defines a structured logging interface with level filtering and field support.
 type Logger interface {
 	Debug(ctx context.Context, msg string, fields ...Field)
 	Info(ctx context.Context, msg string, fields ...Field)
@@ -40,6 +43,7 @@ type Logger interface {
 	SetLevel(level Level)
 }
 
+// Field represents a key-value pair attached to a log entry.
 type Field struct {
 	Key   string
 	Value interface{}

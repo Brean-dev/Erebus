@@ -85,12 +85,12 @@ func GenerateSections(count int) []Section {
 		}
 		heading = strings.Join(words, " ")
 
-		content := bable.Bable(3+rand.IntN(5), 3)
+		content := bable.Bable(3+rand.IntN(5), 3)  //nolint:gosec
 
 		var items []string
 		// 30% chance of having a list
-		if rand.Float32() < 0.3 {
-			listLen := 3 + rand.IntN(4)
+		if rand.Float32() < 0.3 {  //nolint:gosec
+			listLen := 3 + rand.IntN(4)  //nolint:gosec
 			for range listLen {
 				items = append(items, bable.Bable(1, 2))
 			}

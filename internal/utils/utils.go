@@ -1,3 +1,5 @@
+// Package utils provides shared HTTP middleware and request helpers.
+// nolint:revive // package name intentionally generic for utilities
 package utils
 
 import (
@@ -16,24 +18,26 @@ var logFile *os.File
 var logFileError error
 
 func init() {
-	dirErr := os.Mkdir("logs", 0755)
+	dirErr := os.Mkdir("logs", 0750)
 	if dirErr != nil {
-		_ = fmt.Errorf("%s", dirErr)
+		_ = fmt.Errorf("%w", dirErr)
 	}
 }
 
+// GenerateRequestID returns a new UUID v4 string for request tracing.
 func GenerateRequestID() string {
 	id := guuid.New()
 	return id.String()
 }
 
+// LogRequest wraps an http.Handler to log each incoming request.
 func LogRequest(handler http.Handler) http.Handler {
 	todayLogFile := time.Now()
 	logFile, logFileError = os.OpenFile(fmt.Sprintf("/logs/app_%s.log",
 		todayLogFile.Format("2006-01-02")),
-		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if logFileError != nil {
-		_ = fmt.Errorf("%s", logFileError)
+		_ = fmt.Errorf("%w", logFileError)
 	}
 
 	consoleLog := logger.NewStdoutLogger(os.Stdout, logger.InfoLevel)

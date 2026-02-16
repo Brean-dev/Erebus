@@ -98,25 +98,25 @@ func stripNonAlpha(s string) string {
 
 // GenerateAuthorName produces a realistic author name.
 func GenerateAuthorName() string {
-	first := firstNames[rand.IntN(len(firstNames))]
-	last := lastNames[rand.IntN(len(lastNames))]
+	first := firstNames[rand.IntN(len(firstNames))] //nolint:gosec
+	last := lastNames[rand.IntN(len(lastNames))]   //nolint:gosec
 	return titleCase(first) + " " + titleCase(last)
 }
 
 // GenerateRecentDate returns a date within the past 60 days.
 func GenerateRecentDate() time.Time {
-	daysAgo := rand.IntN(60)
+	daysAgo := rand.IntN(60) //nolint:gosec
 	return time.Now().AddDate(0, 0, -daysAgo)
 }
 
 // RandomCategory picks a random category slug.
 func RandomCategory() string {
-	return categories[rand.IntN(len(categories))]
+	return categories[rand.IntN(len(categories))] //nolint:gosec
 }
 
 // RandomMonth picks a random month name.
 func RandomMonth() string {
-	return months[rand.IntN(len(months))]
+	return months[rand.IntN(len(months))] //nolint:gosec
 }
 
 // GenerateLinks produces a set of links with realistic URL patterns.
@@ -129,9 +129,9 @@ func GenerateLinks(count int) []Link {
 }
 
 func generateOneLink() Link {
-	slug := GenerateSlug(3 + rand.IntN(2))
+	slug := GenerateSlug(3 + rand.IntN(2))     //nolint:gosec
 	text := bable.Bable(1, 1)
-	year := 2023 + rand.IntN(3)
+	year := 2023 + rand.IntN(3)               //nolint:gosec
 
 	patterns := []func() Link{
 		func() Link {
@@ -143,7 +143,7 @@ func generateOneLink() Link {
 		},
 		func() Link {
 			return Link{
-				URL:  fmt.Sprintf("/articles/%d/%02d/%s", year, 1+rand.IntN(12), slug),
+				URL:  fmt.Sprintf("/articles/%d/%02d/%s", year, 1+rand.IntN(12), slug), //nolint:gosec
 				Text: text,
 			}
 		},
@@ -175,7 +175,7 @@ func generateOneLink() Link {
 		},
 	}
 
-	return patterns[rand.IntN(len(patterns))]()
+	return patterns[rand.IntN(len(patterns))]() //nolint:gosec
 }
 
 // GenerateNavLinks returns fixed-looking navigation category links.
@@ -192,8 +192,8 @@ func GenerateNavLinks() []Link {
 
 // GeneratePaginationLinks creates prev/next and page number links.
 func GeneratePaginationLinks(basePath string) []Link {
-	totalPages := 5 + rand.IntN(20)
-	currentPage := 1 + rand.IntN(totalPages)
+	totalPages := 5 + rand.IntN(20)           //nolint:gosec
+	currentPage := 1 + rand.IntN(totalPages)  //nolint:gosec
 
 	var links []Link
 	if currentPage > 1 {

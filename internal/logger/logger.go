@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// StdoutLogger writes colored log output to stdout using slog.
 type StdoutLogger struct {
 	mu          sync.Mutex
 	level       Level
@@ -24,6 +25,7 @@ type StdoutLogger struct {
 	slogHandler slog.Handler
 }
 
+// FileLogger writes JSON-formatted log output to a file.
 type FileLogger struct {
 	mu      sync.Mutex
 	level   Level
@@ -32,6 +34,7 @@ type FileLogger struct {
 	encoder *json.Encoder
 }
 
+// NewStdoutLogger creates a StdoutLogger that writes colored output to the given writer.
 func NewStdoutLogger(output io.Writer, level Level) *StdoutLogger {
 
 	if output == nil {
@@ -46,6 +49,7 @@ func NewStdoutLogger(output io.Writer, level Level) *StdoutLogger {
 	}
 }
 
+// NewFileLogger creates a FileLogger that writes JSON output to the given writer.
 func NewFileLogger(output io.Writer, level Level) *FileLogger {
 
 	return &FileLogger{
@@ -91,7 +95,9 @@ func (l *StdoutLogger) log(ctx context.Context, level Level,
 	}
 
 	attrs := []slog.Attr{}
-	allFields := append(l.fields, fields...)
+	allFields := make([]Field, 0, len(l.fields)+len(fields))
+	allFields = append(allFields, l.fields...)
+	allFields = append(allFields, fields...)
 	for _, field := range allFields {
 		if field.Key == "user_agent" {
 			strValue, ok := field.Value.(string)
@@ -114,16 +120,19 @@ func (l *StdoutLogger) log(ctx context.Context, level Level,
 	_ = l.slogHandler.Handle(ctx, record)
 }
 
+// Debug logs a message at debug level.
 func (l *StdoutLogger) Debug(ctx context.Context,
 	msg string, fields ...Field) {
 	l.log(ctx, DebugLevel, msg, fields...)
 }
 
+// Info logs a message at info level.
 func (l *StdoutLogger) Info(ctx context.Context,
 	msg string, fields ...Field) {
 	l.log(ctx, InfoLevel, msg, fields...)
 }
 
+// Warn logs a message at warn level.
 func (l *StdoutLogger) Warn(ctx context.Context,
 	msg string, fields ...Field) {
 	l.log(ctx, WarnLevel, msg, fields...)
@@ -134,12 +143,14 @@ func (l *StdoutLogger) Error(ctx context.Context,
 	l.log(ctx, ErrorLevel, msg, fields...)
 }
 
+// SetLevel adjusts the minimum log level for this logger.
 func (l *StdoutLogger) SetLevel(level Level) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.level = level
 }
 
+// WithFields returns a new logger with the given fields attached to every entry.
 func (l *StdoutLogger) WithFields(fields ...Field) Logger {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -159,7 +170,7 @@ func (l *StdoutLogger) WithFields(fields ...Field) Logger {
 
 // FileLogger methods - implements Logger interface with JSON output
 
-func (l *FileLogger) log(ctx context.Context, level Level,
+func (l *FileLogger) log(_ context.Context, level Level,
 	msg string, fields ...Field) {
 	if level < l.level {
 		return
@@ -175,7 +186,9 @@ func (l *FileLogger) log(ctx context.Context, level Level,
 		"message":   msg,
 	}
 
-	allFields := append(l.fields, fields...)
+	allFields := make([]Field, 0, len(l.fields)+len(fields))
+	allFields = append(allFields, l.fields...)
+	allFields = append(allFields, fields...)
 
 	for _, field := range allFields {
 		if field.Key == "user_agent" {
@@ -196,14 +209,17 @@ func (l *FileLogger) log(ctx context.Context, level Level,
 	_ = l.encoder.Encode(entry)
 }
 
+// Debug logs a message at debug level.
 func (l *FileLogger) Debug(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, DebugLevel, msg, fields...)
 }
 
+// Info logs a message at info level.
 func (l *FileLogger) Info(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, InfoLevel, msg, fields...)
 }
 
+// Warn logs a message at warn level.
 func (l *FileLogger) Warn(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, WarnLevel, msg, fields...)
 }
@@ -212,12 +228,14 @@ func (l *FileLogger) Error(ctx context.Context, msg string, fields ...Field) {
 	l.log(ctx, ErrorLevel, msg, fields...)
 }
 
+// SetLevel adjusts the minimum log level for this logger.
 func (l *FileLogger) SetLevel(level Level) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.level = level
 }
 
+// WithFields returns a new logger with the given fields attached to every entry.
 func (l *FileLogger) WithFields(fields ...Field) Logger {
 	l.mu.Lock()
 	defer l.mu.Unlock()

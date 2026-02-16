@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/MatusOllah/slogcolor"
 
@@ -26,8 +27,16 @@ func main() {
 
 	slog.Info("server started on :8080")
 
-	err := http.ListenAndServe(fmt.Sprintf(":%d", httpPort),
-		utils.LogRequest(http.DefaultServeMux))
+	server := &http.Server{
+		Addr:              fmt.Sprintf(":%d", httpPort),
+		Handler:           utils.LogRequest(http.DefaultServeMux),
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		ReadHeaderTimeout: 15 * time.Second,
+	}
+
+	err := server.ListenAndServe()
 	if err != nil {
 		slog.Error(err.Error())
 	}
