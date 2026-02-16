@@ -29,7 +29,8 @@ func (l Level) String() string {
 	}
 }
 
-// Logger defines a structured logging interface with level filtering and field support.
+// Logger defines a structured logging
+// interface with level filtering and field support.
 type Logger interface {
 	Debug(ctx context.Context, msg string, fields ...Field)
 	Info(ctx context.Context, msg string, fields ...Field)
@@ -46,5 +47,5 @@ type Logger interface {
 // Field represents a key-value pair attached to a log entry.
 type Field struct {
 	Key   string
-	Value interface{}
+	Value any
 }
