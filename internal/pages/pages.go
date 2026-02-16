@@ -6,16 +6,27 @@ import (
 	"html"
 	"html/template"
 	"log"
+	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"strings"
 	"time"
 
 	"Erebus/internal/bable"
+	cache "Erebus/internal/rediscache"
 )
 
 // GenerateHandler serves dynamically generated tarpit pages.
 func GenerateHandler(w http.ResponseWriter, r *http.Request) {
+	rClient, rError := cache.NewRedisClient()
+	if rError != nil {
+		slog.Error("error creating new redisclient: %w", "error", rError)
+	}
+	err := rClient.Set("ip", r.Header.Get("CF-Connecting-IP"), 15*time.Second)
+	if err != nil {
+		slog.Error("error setting new value to key: %w", "error", err)
+	}
+
 	generatedText := bable.Bable(50, 5)
 
 	flusher, ok := w.(http.Flusher)
@@ -31,7 +42,7 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Build a multi-word title from the generated text
 	titleWords := strings.Fields(generatedText)
-	titleLen := 3 + rand.IntN(4)  //nolint:gosec
+	titleLen := 3 + rand.IntN(4) //nolint:gosec
 	if titleLen > len(titleWords) {
 		titleLen = len(titleWords)
 	}
@@ -55,10 +66,10 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 		BylineHTML     template.HTML
 	}{
 		Title:          title,
-		MetaHTML:       template.HTML(meta.RenderHead()),         //nolint:gosec
-		NavHTML:        template.HTML(RenderNav(GenerateNavLinks())),         //nolint:gosec
-		BreadcrumbHTML: template.HTML(RenderBreadcrumbs(GenerateBreadcrumbs(r.URL.Path))),         //nolint:gosec
-		BylineHTML:     template.HTML(RenderByline(meta)),         //nolint:gosec
+		MetaHTML:       template.HTML(meta.RenderHead()),                                  //nolint:gosec
+		NavHTML:        template.HTML(RenderNav(GenerateNavLinks())),                      //nolint:gosec
+		BreadcrumbHTML: template.HTML(RenderBreadcrumbs(GenerateBreadcrumbs(r.URL.Path))), //nolint:gosec
+		BylineHTML:     template.HTML(RenderByline(meta)),                                 //nolint:gosec
 	}
 
 	err = ts.Execute(w, data)
@@ -77,13 +88,13 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 
 	// Generate and write sub-sections with headings
-	sectionCount := 2 + rand.IntN(3)  //nolint:gosec
+	sectionCount := 2 + rand.IntN(3) //nolint:gosec
 	sections := GenerateSections(sectionCount)
 	_, _ = fmt.Fprint(w, RenderSections(sections))
 	flusher.Flush()
 
 	// Article links
-	articleLinks := GenerateLinks(8 + rand.IntN(5))  //nolint:gosec
+	articleLinks := GenerateLinks(8 + rand.IntN(5)) //nolint:gosec
 	_, _ = fmt.Fprint(w, `<ul class="article-links">`)
 	for _, l := range articleLinks {
 		_, _ = fmt.Fprintf(w, `<li><a href="%s">%s</a></li>`,
@@ -109,7 +120,7 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 
 	// Sidebar
-	sidebarLinks := GenerateLinks(5 + rand.IntN(3))  //nolint:gosec
+	sidebarLinks := GenerateLinks(5 + rand.IntN(3)) //nolint:gosec
 	_, _ = fmt.Fprint(w, RenderSidebar(sidebarLinks))
 
 	// Close layout div
@@ -117,7 +128,7 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 
 	// Footer
-	footerLinks := GenerateLinks(8 + rand.IntN(4))  //nolint:gosec
+	footerLinks := GenerateLinks(8 + rand.IntN(4)) //nolint:gosec
 	_, _ = fmt.Fprint(w, RenderFooter(footerLinks))
 
 	_, _ = fmt.Fprint(w, `</body></html>`)
@@ -131,7 +142,7 @@ func streamWords(w http.ResponseWriter, flusher http.Flusher, r *http.Request, w
 		case <-r.Context().Done():
 			return
 		default:
-			chunkSize := 1 + rand.IntN(8)  //nolint:gosec
+			chunkSize := 1 + rand.IntN(8) //nolint:gosec
 			if i+chunkSize > len(words) {
 				chunkSize = len(words) - i
 			}
@@ -143,10 +154,10 @@ func streamWords(w http.ResponseWriter, flusher http.Flusher, r *http.Request, w
 			i += chunkSize
 
 			var delay time.Duration
-			if rand.Float32() < 0.15 {  //nolint:gosec
-				delay = time.Duration(300+rand.IntN(200)) * time.Millisecond  //nolint:gosec
+			if rand.Float32() < 0.15 { //nolint:gosec
+				delay = time.Duration(300+rand.IntN(200)) * time.Millisecond //nolint:gosec
 			} else {
-				delay = time.Duration(20+rand.IntN(180)) * time.Millisecond  //nolint:gosec
+				delay = time.Duration(20+rand.IntN(180)) * time.Millisecond //nolint:gosec
 			}
 
 			if i < len(words) {
