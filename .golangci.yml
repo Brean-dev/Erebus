@@ -55,7 +55,7 @@ linters-settings:
     tab-width: 4
 
   unused:
-    go: "1.25"
+    go: "1.25.7"
 
   unparam:
     check-exported: false
