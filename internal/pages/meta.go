@@ -30,7 +30,8 @@ func GenerateMeta(title, content, path string) PageMeta {
 	seen := make(map[string]bool)
 	for _, w := range words {
 		cleaned := stripNonAlpha(w)
-		if cleaned == "" || stopWords[cleaned] || len(cleaned) < 4 || seen[cleaned] {
+		if cleaned == "" || stopWords[cleaned] ||
+			len(cleaned) < 4 || seen[cleaned] {
 			continue
 		}
 		seen[cleaned] = true
