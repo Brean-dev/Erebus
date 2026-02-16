@@ -6,37 +6,50 @@ import (
 	"fmt"
 	"github.com/redis/go-redis/v9"
 	"os"
+	"time"
 )
 
-var ctx = context.Background()
+var (
+	// Ctx is the global context.Background() var for the Redis connection.
+	Ctx = context.Background()
+	// Rdb is the gloabal *redis.Client pointer.
+	Rdb *redis.Client
+)
 
-// ConnectRedis will connect to our Redis instance.
-func ConnectRedis() *redis.Client {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"),
-			os.Getenv("REDIS_PORT")),
-		Password: os.Getenv("REDIS_PASSWORD"),
-		DB:       0,
-	})
+// DisconnectRedis will close the connection to Redis.
+func DisconnectRedis() {
 	defer func() {
-		err := rdb.Close()
+		err := Rdb.Close()
 		if err != nil {
 			_ = fmt.Errorf("error closing redis: %w", err)
 		}
 	}()
+}
 
-	ping, err := TestRedisConnection(rdb)
+// ConnectRedis will connect to our Redis instance.
+func ConnectRedis() *redis.Client {
+	Rdb = redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"),
+			os.Getenv("REDIS_PORT")),
+		Password:     os.Getenv("REDIS_PASSWORD"),
+		PoolSize:     10,
+		DialTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		DB:           0,
+	})
+
+	ping, err := TestRedisConnection(Rdb)
 	if err != nil {
 		return nil
 	} else if ping {
-		return rdb
+		return Rdb
 	}
-	return rdb
+	return Rdb
 }
 
 // TestRedisConnection will ping the redis instance.
 func TestRedisConnection(r *redis.Client) (bool, error) {
-	_, err := r.Ping(ctx).Result()
+	_, err := r.Ping(Ctx).Result()
 	if err != nil {
 		return false, err
 	}

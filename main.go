@@ -38,8 +38,7 @@ func main() {
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 
-	RedisClient = cache.ConnectRedis()
-
+	cache.ConnectRedis()
 	err := server.ListenAndServe()
 	if err != nil {
 		slog.Error(err.Error())
