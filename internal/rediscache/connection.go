@@ -5,9 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/redis/go-redis/v9"
-	"log/slog"
 	"os"
-	"time"
 )
 
 var ctx = context.Background()
@@ -27,17 +25,20 @@ func ConnectRedis() *redis.Client {
 		}
 	}()
 
+	ping, err := TestRedisConnection(rdb)
+	if err != nil {
+		return nil
+	} else if ping {
+		return rdb
+	}
 	return rdb
 }
 
 // TestRedisConnection will ping the redis instance.
-func TestRedisConnection(r *redis.Client) {
-	time.Sleep(20 * time.Second)
-	pong, err := r.Ping(ctx).Result()
+func TestRedisConnection(r *redis.Client) (bool, error) {
+	_, err := r.Ping(ctx).Result()
 	if err != nil {
-		slog.Warn("redis ping pong failed with err: ", "error", err.Error())
-	} else {
-		slog.Info("redis ping pong success: ", "ping", pong)
+		return false, err
 	}
-
+	return true, nil
 }
