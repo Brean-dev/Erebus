@@ -6,26 +6,24 @@ import (
 	"html"
 	"html/template"
 	"log"
-	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"strings"
 	"time"
 
 	"Erebus/internal/bable"
-	cache "Erebus/internal/rediscache"
 )
 
 // GenerateHandler serves dynamically generated tarpit pages.
 func GenerateHandler(w http.ResponseWriter, r *http.Request) {
-	rClient, rError := cache.NewRedisClient()
-	if rError != nil {
-		slog.Error("error creating new redisclient: %w", "error", rError)
-	}
-	err := rClient.Set("ip", r.Header.Get("CF-Connecting-IP"), 15*time.Second)
-	if err != nil {
-		slog.Error("error setting new value to key: %w", "error", err)
-	}
+	// rClient, rError := cache.NewRedisClient()
+	// if rError != nil {
+	// 	slog.Error("error creating new redisclient: %w", "error", rError)
+	// }
+	// err := rClient.Set("ip", r.Header.Get("CF-Connecting-IP"), 15*time.Second)
+	// if err != nil {
+	// 	slog.Error("error setting new value to key: %w", "error", err)
+	// }
 
 	generatedText := bable.Bable(50, 5)
 
