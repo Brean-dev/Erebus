@@ -1,8 +1,10 @@
 package rediscache
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -15,18 +17,18 @@ func newClient() *RedisClient {
 }
 
 // ttlSet is the time to live for the set operation.
-var ttlSet = time.Duration(180)
+var ttlSet = time.Duration(180) * time.Second
 
 // SetIP will write CF-Connecting-IP into memory for 180 seconds(3 minutes)
 // of redis. We will use this to track how long scrapers are stuck.
 func SetIP(r *http.Request) {
 	redis := newClient()
-	setValueError := redis.Set("real-ip", r.Header.Get("CF-Connecting-IP"),
-		ttlSet*time.Second)
+	ip := r.Header.Get("CF-Connecting-IP")
+	keyName := fmt.Sprintf("real-ip:%s", ip)
+	setValueError := redis.Rdb.SetEx(redis.Ctx, keyName, 1, ttlSet).Err()
 	if setValueError != nil {
 		slog.Error("error setting value in redis: %w", "error", setValueError)
 	}
-
 	_ = redis.Close()
 }
 
@@ -42,66 +44,28 @@ func GetKey(key string) (string, error) {
 	return getValueResult, nil
 }
 
-// GetAllValuesFromKey will get all the values of a key.
-func GetAllValuesFromKey(keyName string) {
+// GetAllConnectedIPs  will get all the values of a key.
+func GetAllConnectedIPs() ([]string, error) {
 	redis := newClient()
-	ctx := redis.Ctx
+	var cursor uint64
+	var ips []string
 
-	// First, check the type of the key
-	keyType, err := redis.Rdb.Type(ctx, keyName).Result()
-	if err != nil {
-		slog.Error("error getting key type: ", "error", err)
-		return
+	for {
+		keys, newCursor, err := redis.Rdb.Scan(redis.Ctx, cursor, "real-ip:*", 100).Result()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, key := range keys {
+			ip := strings.TrimPrefix(key, "real-ip:")
+			ips = append(ips, ip)
+		}
+
+		cursor = newCursor
+		if cursor == 0 {
+			break
+		}
 	}
 
-	// Use the appropriate command based on type
-	switch keyType {
-	case "string":
-		val, err := redis.Rdb.Get(ctx, keyName).Result()
-		if err != nil {
-			slog.Error("error getting string value: ", "error", err)
-			return
-		}
-		slog.Info("value: ", "value", val)
-
-	case "list":
-		vals, err := redis.Rdb.LRange(ctx, keyName, 0, -1).Result()
-		if err != nil {
-			slog.Error("error getting list values: ", "error", err)
-			return
-		}
-		slog.Info("values: ", "values", vals)
-
-	case "set":
-		vals, err := redis.Rdb.SMembers(ctx, keyName).Result()
-		if err != nil {
-			slog.Error("error getting set values: ", "error", err)
-			return
-		}
-		slog.Info("values: ", "values", vals)
-
-	case "zset":
-		vals, err := redis.Rdb.ZRange(ctx, keyName, 0, -1).Result()
-		if err != nil {
-			slog.Error("error getting sorted set values: ", "error", err)
-			return
-		}
-		slog.Info("values: ", "values", vals)
-
-	case "hash":
-		result, err := redis.Rdb.HGetAll(ctx, keyName).Result()
-		if err != nil {
-			slog.Error("error getting hash values: ", "error", err)
-			return
-		}
-		slog.Info("values: ", "values", result)
-
-	case "none":
-		slog.Warn("key does not exist", "key", keyName)
-
-	default:
-		slog.Error("unknown key type", "type", keyType)
-	}
-
-	_ = redis.Close()
+	return ips, nil
 }
