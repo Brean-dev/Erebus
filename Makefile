@@ -22,7 +22,9 @@ run: build
 
 # Build and run in one command
 .PHONY: dev
-dev: run
+dev:
+	@echo "Running localhost dev enviorment"
+	@docker-compose -f /home/brean/projects/erebus/server_web/dev/docker-compose.redis.yml  up --build
 
 # Clean build artifacts
 .PHONY: clean
