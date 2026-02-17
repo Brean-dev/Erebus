@@ -17,7 +17,12 @@ type RedisClient struct {
 }
 
 // NewRedisClient creates a new struct RedisClient.
+// It retries the connection up to maxRetries times with a delay between attempts,
+// allowing time for the Redis container to become reachable on the network.
 func NewRedisClient() (*RedisClient, error) {
+	const maxRetries = 10
+	const retryDelay = 3 * time.Second
+
 	rdb := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"),
 			os.Getenv("REDIS_PORT")),
@@ -27,15 +32,21 @@ func NewRedisClient() (*RedisClient, error) {
 	})
 	ctx := context.Background()
 
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
+	var lastErr error
+	for i := range maxRetries {
+		if err := rdb.Ping(ctx).Err(); err != nil {
+			lastErr = err
+			fmt.Printf("Redis connection attempt %d/%d failed: %v\n", i+1, maxRetries, err)
+			time.Sleep(retryDelay)
+			continue
+		}
+		return &RedisClient{
+			Rdb: rdb,
+			Ctx: ctx,
+		}, nil
 	}
 
-	return &RedisClient{
-		Rdb: rdb,
-		Ctx: ctx,
-	}, nil
-
+	return nil, fmt.Errorf("failed to connect to Redis after %d attempts: %w", maxRetries, lastErr)
 }
 
 // TestRedisConnection tests the connection with the Redis instnace.
