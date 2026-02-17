@@ -41,12 +41,13 @@ func main() {
 	RedisClient, redisError = cache.NewRedisClient()
 	if redisError != nil {
 		slog.Error(redisError.Error())
-	}
-	pong, err := RedisClient.TestRedisConnection()
-	if err != nil {
-		slog.Error(err.Error())
 	} else {
-		slog.Info("", "ping", pong)
+		pong, err := RedisClient.TestRedisConnection()
+		if err != nil {
+			slog.Error(err.Error())
+		} else {
+			slog.Info("", "ping", pong)
+		}
 	}
 
 	serveErr := server.ListenAndServe()
