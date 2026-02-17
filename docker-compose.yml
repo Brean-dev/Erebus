@@ -20,14 +20,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-  cache:
-    image: redis:6.2-alpine
-    restart: always
-    ports:
-      - '${REDIS_PORT}:${REDIS_PORT}'
-    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
-    volumes:
-      - cache:/data
-volumes:
-  cache:
-    driver: local
