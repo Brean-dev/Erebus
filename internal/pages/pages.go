@@ -12,18 +12,24 @@ import (
 	"time"
 
 	"Erebus/internal/bable"
+	cache "Erebus/internal/rediscache"
+	"log/slog"
 )
 
 // GenerateHandler serves dynamically generated tarpit pages.
 func GenerateHandler(w http.ResponseWriter, r *http.Request) {
-	// rClient, rError := cache.NewRedisClient()
-	// if rError != nil {
-	// 	slog.Error("error creating new redisclient: %w", "error", rError)
-	// }
-	// err := rClient.Set("ip", r.Header.Get("CF-Connecting-IP"), 15*time.Second)
-	// if err != nil {
-	// 	slog.Error("error setting new value to key: %w", "error", err)
-	// }
+
+	// Store real-ip in Redis, we will use this as a unique ID
+	// later on we check how long this value has been in our memory
+	// This will give a better idea of how long some scrapers have been stuck
+	rClient, rError := cache.NewRedisClient()
+	if rError != nil {
+		slog.Error("error creating new redisclient: %w", "error", rError)
+	}
+	err := rClient.Set("ip", r.Header.Get("CF-Connecting-IP"), 15*time.Second)
+	if err != nil {
+		slog.Error("error setting new value to key: %w", "error", err)
+	}
 
 	generatedText := bable.Bable(50, 5)
 
