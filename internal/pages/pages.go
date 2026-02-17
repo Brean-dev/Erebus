@@ -6,7 +6,6 @@ import (
 	"html"
 	"html/template"
 	"log"
-	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"strings"
@@ -24,12 +23,6 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	// This will give a better idea of how long some scrapers have been stuck
 	cache.SetIP(r)
 
-	connectedIPs, ipsError := cache.GetAllConnectedIPs()
-	if ipsError != nil {
-		slog.Error("error getting all IPs", "error", ipsError)
-	} else {
-		slog.Info("all ips connected", "ips", connectedIPs)
-	}
 	generatedText := bable.Bable(50, 5)
 
 	flusher, ok := w.(http.Flusher)
