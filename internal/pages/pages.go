@@ -23,6 +23,9 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	// This will give a better idea of how long some scrapers have been stuck
 	cache.SetIP(r)
 
+	// Debugline
+	cache.GetAllValuesFromKey("real-ip")
+	//
 	generatedText := bable.Bable(50, 5)
 
 	flusher, ok := w.(http.Flusher)
