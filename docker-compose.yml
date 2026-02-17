@@ -1,5 +1,4 @@
 services:
-
   erebus:
     build:
       context: .
@@ -8,15 +7,21 @@ services:
     ports:
       - "8080:8080"
     environment:
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
+      REDIS_HOST: cache
+      REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
       - /logs:/logs
     restart: unless-stopped
+    networks:
+      - redis-network  # Connect to the Redis network
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+networks:
+  redis-network:
+    external: true  # Use the existing network from Redis compose
