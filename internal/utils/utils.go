@@ -10,12 +10,17 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
-var log *logger.MultiLogger
-var logFile *os.File
-var logFileError error
+var (
+	log            *logger.MultiLogger
+	logFile        *os.File
+	logFileError   error
+	currentLogDate string
+	logMu          sync.Mutex
+)
 
 func init() {
 	dirErr := os.Mkdir("logs", 0750)
@@ -30,21 +35,41 @@ func GenerateRequestID() string {
 	return id.String()
 }
 
-// LogRequest wraps an http.Handler to log each incoming request.
-func LogRequest(handler http.Handler) http.Handler {
-	todayLogFile := time.Now()
-	logFile, logFileError = os.OpenFile(fmt.Sprintf("/logs/app_%s.log",
-		todayLogFile.Format("2006-01-02")),
+// openLogFile opens a new daily log file if the date has changed.
+// Must be called while logMu is held.
+func openLogFile() {
+	today := time.Now().Format("2006-01-02")
+	if today == currentLogDate {
+		return
+	}
+
+	if logFile != nil {
+		_ = logFile.Close()
+	}
+
+	currentLogDate = today
+	logFile, logFileError = os.OpenFile(
+		fmt.Sprintf("/logs/app_%s.log", today),
 		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if logFileError != nil {
-		_ = fmt.Errorf("%w", logFileError)
+		return
 	}
 
 	consoleLog := logger.NewStdoutLogger(os.Stdout, logger.InfoLevel)
 	fileLog := logger.NewFileLogger(logFile, logger.InfoLevel)
 	log = logger.NewMultiLogger(consoleLog, fileLog)
+}
+
+// LogRequest wraps an http.Handler to log each incoming request.
+func LogRequest(handler http.Handler) http.Handler {
+	logMu.Lock()
+	openLogFile()
+	logMu.Unlock()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logMu.Lock()
+		openLogFile()
+		logMu.Unlock()
 		ctx := r.Context()
 		userAgent := r.Header.Get("User-Agent")
 		accept := r.Header.Get("Accept")
