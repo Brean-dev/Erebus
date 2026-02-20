@@ -21,7 +21,10 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	// Store real-ip in Redis, we will use this as a unique ID
 	// later on we check how long this value has been in our memory
 	// This will give a better idea of how long some scrapers have been stuck
-	cache.SetIP(r)
+	if err := cache.SetIP(r); err != nil {
+		log.Printf("failed to store IP in cache: %s", err.Error())
+		// Continue serving the page even if cache fails
+	}
 
 	generatedText := bable.Bable(50, 5)
 
