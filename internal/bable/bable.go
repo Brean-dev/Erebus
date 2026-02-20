@@ -36,6 +36,7 @@ func NewChain(prefixLen int) *Chain {
 	}
 }
 
+// internWord converts a word to its unique ID, creating a new ID if needed.
 func (chain *Chain) internWord(word string) int {
 	if id, exists := chain.wordToID[word]; exists {
 		return id
@@ -47,8 +48,8 @@ func (chain *Chain) internWord(word string) int {
 }
 
 // Build processes text into the Markov chain.
-func (chain *Chain) Build(r string) {
-	sentences := splitIntoSentences(r)
+func (chain *Chain) Build(text string) {
+	sentences := splitIntoSentences(text)
 
 	for _, sentence := range sentences {
 		tokens := tokenize(sentence)
@@ -56,36 +57,37 @@ func (chain *Chain) Build(r string) {
 			continue
 		}
 
-		p := make(Prefix, chain.prefixLen)
-
+		// Initialize prefix with START tokens
+		prefix := make(Prefix, chain.prefixLen)
 		startID := chain.internWord(startToken)
 		for i := 0; i < chain.prefixLen; i++ {
-			p[i] = startID
+			prefix[i] = startID
 		}
 
+		// Build chain by recording what word follows each prefix
 		for _, token := range tokens {
 			tokenID := chain.internWord(token)
-			key := hashPrefix(p)
+			key := hashPrefix(prefix)
 			chain.chain[key] = append(chain.chain[key], tokenID)
-			p.Shift(tokenID)
+			prefix.Shift(tokenID)
 		}
 
+		// Mark sentence end
 		endID := chain.internWord(endToken)
-		key := hashPrefix(p)
+		key := hashPrefix(prefix)
 		chain.chain[key] = append(chain.chain[key], endID)
 	}
 }
 
 func splitIntoSentences(text string) []string {
-	// Split on sentence-ending punctuation
-	re := regexp.MustCompile(`[.!?]+[\s\n]+`)
-	sentences := re.Split(text, -1)
+	sentenceDelimiter := regexp.MustCompile(`[.!?]+[\s\n]+`)
+	sentences := sentenceDelimiter.Split(text, -1)
 
 	var cleaned []string
-	for _, s := range sentences {
-		s = strings.TrimSpace(s)
-		if s != "" {
-			cleaned = append(cleaned, s)
+	for _, sentence := range sentences {
+		sentence = strings.TrimSpace(sentence)
+		if sentence != "" {
+			cleaned = append(cleaned, sentence)
 		}
 	}
 	return cleaned
@@ -127,7 +129,7 @@ func (chain *Chain) GenerateSentences(numSentences int) string {
 }
 
 func (chain *Chain) generateOneSentence() string {
-	p := make(Prefix, chain.prefixLen)
+	prefix := make(Prefix, chain.prefixLen)
 
 	startID, hasStart := chain.wordToID[startToken]
 	if !hasStart {
@@ -135,21 +137,21 @@ func (chain *Chain) generateOneSentence() string {
 	}
 
 	for i := 0; i < chain.prefixLen; i++ {
-		p[i] = startID
+		prefix[i] = startID
 	}
 
 	var tokens []string
 	maxTokens := 100
 
 	for len(tokens) < maxTokens {
-		key := hashPrefix(p)
+		key := hashPrefix(prefix)
 		choices := chain.chain[key]
 
 		if len(choices) == 0 {
 			break
 		}
 
-		nextID := choices[rand.IntN(len(choices))]  //nolint:gosec
+		nextID := choices[rand.IntN(len(choices))] //nolint:gosec
 		nextToken := chain.vocab[nextID]
 
 		if nextToken == endToken || nextToken == startToken {
@@ -157,7 +159,7 @@ func (chain *Chain) generateOneSentence() string {
 		}
 
 		tokens = append(tokens, nextToken)
-		p.Shift(nextID)
+		prefix.Shift(nextID)
 	}
 
 	return joinTokens(tokens)
@@ -170,30 +172,34 @@ func joinTokens(tokens []string) string {
 		return ""
 	}
 
-	var b strings.Builder
-	b.WriteString(tokens[0])
+	var builder strings.Builder
+	builder.WriteString(tokens[0])
 
 	for _, token := range tokens[1:] {
 		if !isPunctuation(token) {
-			b.WriteByte(' ')
+			builder.WriteByte(' ')
 		}
-		b.WriteString(token)
+		builder.WriteString(token)
 	}
 
-	return b.String()
+	return builder.String()
 }
 
 // Shift removes the first element and appends wordID to the end.
-func (p Prefix) Shift(wordID int) {
-	copy(p, p[1:])
-	p[len(p)-1] = wordID
+func (prefix Prefix) Shift(wordID int) {
+	copy(prefix, prefix[1:])
+	prefix[len(prefix)-1] = wordID
 }
 
+// hashPrefix uses FNV-1a hash algorithm to create a unique key from word IDs.
 func hashPrefix(wordIDs []int) uint64 {
-	var hash uint64 = 14695981039346656037
+	const fnvOffsetBasis uint64 = 14695981039346656037
+	const fnvPrime = 1099511628211
+
+	hash := fnvOffsetBasis
 	for _, id := range wordIDs {
 		hash ^= uint64(id) //nolint:gosec
-		hash *= 1099511628211
+		hash *= fnvPrime
 	}
 	return hash
 }
@@ -230,10 +236,10 @@ func ReadManifesto() string {
 
 // Bable generates random text by building a Markov chain from the manifesto.
 func Bable(numSentences int, prefixLen int) string {
-	c := NewChain(prefixLen)
-	c.Build(ReadManifesto())
+	chain := NewChain(prefixLen)
+	chain.Build(ReadManifesto())
 
-	text := c.GenerateSentences(numSentences)
+	text := chain.GenerateSentences(numSentences)
 
 	return text
 }
