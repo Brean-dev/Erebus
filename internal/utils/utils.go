@@ -60,6 +60,25 @@ func openLogFile() {
 	log = logger.NewMultiLogger(consoleLog, fileLog)
 }
 
+func getCFDetails(r *http.Request) map[string]string {
+	return map[string]string{
+		"country":      r.Header.Get("CF-IPCountry"),
+		"ray":          r.Header.Get("CF-Ray"),
+		"conneting_ip": r.Header.Get("CF-Connecting-IP"),
+		"visitor":      r.Header.Get("CF-Visitor"),
+		"ipcity":       r.Header.Get("CF-IPCity"),
+		"user_agent":   r.Header.Get("User-Agent"),
+		"accept":       r.Header.Get("Accept"),
+		"lang":         r.Header.Get("Accept-Language"),
+		"encoding":     r.Header.Get("Accept-Encoding"),
+		"host":         r.Host,
+		"method":       r.Method,
+		"remote_addr":  r.RemoteAddr,
+		"remote_path":  r.URL.Path,
+		"proto":        r.Proto,
+	}
+}
+
 // LogRequest wraps an http.Handler to log each incoming request.
 func LogRequest(handler http.Handler) http.Handler {
 	logMu.Lock()
@@ -67,33 +86,30 @@ func LogRequest(handler http.Handler) http.Handler {
 	logMu.Unlock()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Fetch header
+		header := getCFDetails(r)
+
 		logMu.Lock()
 		openLogFile()
 		logMu.Unlock()
 		ctx := r.Context()
-		userAgent := r.Header.Get("User-Agent")
-		accept := r.Header.Get("Accept")
-		lang := r.Header.Get("Accept-Language")
-		encoding := r.Header.Get("Accept-Encoding")
-		//nolint:canonicalheader //cannot change header
-		cfConnectingIP := r.Header.Get("CF-Connecting-IP")
 
-		lowerUA := strings.ToLower(userAgent)
-		if userAgent == "" || strings.Contains(lowerUA, "wget") {
+		lowerUA := strings.ToLower(header["user_agent"])
+		if header["user_agent"] == "" || strings.Contains(lowerUA, "wget") {
 			return
 		}
 
 		reqLog := log.WithFields(
-			logger.Field{Key: "remote_addr", Value: r.RemoteAddr},
-			logger.Field{Key: "method", Value: r.Method},
-			logger.Field{Key: "remote_path", Value: r.URL.Path},
-			logger.Field{Key: "proto", Value: r.Proto},
-			logger.Field{Key: "user_agent", Value: userAgent},
-			logger.Field{Key: "accept", Value: accept},
-			logger.Field{Key: "lang", Value: lang},
-			logger.Field{Key: "encoding", Value: encoding},
+			logger.Field{Key: "remote_addr", Value: header["remote_addr"]},
+			logger.Field{Key: "method", Value: header["method"]},
+			logger.Field{Key: "remote_path", Value: header["remote_path"]},
+			logger.Field{Key: "proto", Value: header["proto"]},
+			logger.Field{Key: "user_agent", Value: header["user_agent"]},
+			logger.Field{Key: "accept", Value: header["accept"]},
+			logger.Field{Key: "lang", Value: header["lang"]},
+			logger.Field{Key: "encoding", Value: header["encoding"]},
 			logger.Field{Key: "header_len", Value: len(r.Header)},
-			logger.Field{Key: "real_ip", Value: cfConnectingIP},
+			logger.Field{Key: "real_ip", Value: header["real_ip"]},
 		)
 		reqLog.Info(ctx, "")
 
