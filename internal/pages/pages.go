@@ -34,10 +34,14 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 			http.StatusInternalServerError)
 		return
 	}
-
+	// Set headers to prevent timeouts and caching
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("X-Accel-Buffering", "no")
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable Nginx buffering
+	w.Header().Set("Transfer-Encoding", "chunked")
+	w.Header().Set("Connection", "keep-alive")
 
 	// Build a multi-word title from the generated text
 	titleWords := strings.Fields(generatedText)
