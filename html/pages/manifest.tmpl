@@ -1,9 +1,23 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{.Title}}</title>
+    <script>
+        function scrollToBottom() {
+            window.scrollTo(0, document.body.scrollHeight);
+            setTimeout(scrollToBottom, 500);
+        }
+        window.onload = function() {
+            scrollToBottom();
+            setInterval(function() {
+                var img = new Image();
+                img.src = "?keepalive=" + new Date().getTime();
+            }, 25000);
+        };
+    </script>
 {{.MetaHTML}}
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
