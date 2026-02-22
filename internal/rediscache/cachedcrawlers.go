@@ -192,6 +192,5 @@ func GetAllConnectedIPs() ([]string, error) {
 			break
 		}
 	}
-
 	return ips, nil
 }
