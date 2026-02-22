@@ -31,6 +31,7 @@ COPY --from=builder /app/erebus .
 COPY --from=builder /app/html/pages/manifest.tmpl ./html/pages/manifest.tmpl
 COPY --from=builder /app/manifest ./manifest
 COPY --from=builder /app/words_manifesto ./words_manifesto
+COPY --from=builder /app/config.toml ./config.toml
 
 # Expose port 8080
 EXPOSE 8080

@@ -16,7 +16,7 @@ var Conf Config
 var confErr error
 
 func init() {
-	Conf, confErr = LoadConfig("./config.toml")
+	Conf, confErr = LoadConfig("config.toml")
 	if confErr != nil {
 		slog.Error("error parsing toml config file %w", "error", confErr.Error())
 	}
