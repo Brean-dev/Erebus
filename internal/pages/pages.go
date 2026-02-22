@@ -84,7 +84,7 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 
 	// Stream main content slowly
-	streamWords(w, flusher, r, strings.Fields(generatedText))
+	streamWords(w, flusher, r, strings.Fields(generatedText), 8)
 
 	// Close the streamed paragraph and text div
 	_, _ = fmt.Fprint(w, `</p></div>`)
@@ -138,7 +138,7 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 }
 
-func streamWords(w http.ResponseWriter, flusher http.Flusher, r *http.Request, words []string) {
+func streamWords(w http.ResponseWriter, flusher http.Flusher, r *http.Request, words []string, intervalSeconds float64) {
 	i := 0
 	for i < len(words) {
 		select {
@@ -157,10 +157,15 @@ func streamWords(w http.ResponseWriter, flusher http.Flusher, r *http.Request, w
 			i += chunkSize
 
 			var delay time.Duration
-			if rand.Float32() < 0.15 { //nolint:gosec
-				delay = time.Duration(300+rand.IntN(200)) * time.Millisecond //nolint:gosec
+			if intervalSeconds > 0 {
+				delay = time.Duration(intervalSeconds * float64(time.Second))
 			} else {
-				delay = time.Duration(20+rand.IntN(180)) * time.Millisecond //nolint:gosec
+				// Use random delays if no interval is set
+				if rand.Float32() < 0.15 { //nolint:gosec
+					delay = time.Duration(300+rand.IntN(200)) * time.Millisecond //nolint:gosec
+				} else {
+					delay = time.Duration(20+rand.IntN(180)) * time.Millisecond //nolint:gosec
+				}
 			}
 
 			if i < len(words) {
