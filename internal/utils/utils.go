@@ -65,25 +65,25 @@ func openLogFile() {
 // requestDetails extracts CloudFlare and standard HTTP headers from a request.
 func requestDetails(r *http.Request) map[string]string {
 	return map[string]string{
-		"country":      r.Header.Get("CF-IPCountry"),
-		"ray":          r.Header.Get("CF-Ray"),
+		"country":       r.Header.Get("CF-IPCountry"),
+		"ray":           r.Header.Get("CF-Ray"),
 		"connecting_ip": r.Header.Get("CF-Connecting-IP"),
-		"visitor":      r.Header.Get("CF-Visitor"),
-		"ipcity":       r.Header.Get("CF-IPCity"),
-		"user_agent":   r.Header.Get("User-Agent"),
-		"accept":       r.Header.Get("Accept"),
-		"lang":         r.Header.Get("Accept-Language"),
-		"encoding":     r.Header.Get("Accept-Encoding"),
-		"host":         r.Host,
-		"method":       r.Method,
-		"remote_addr":  r.RemoteAddr,
-		"remote_path":  r.URL.Path,
-		"proto":        r.Proto,
+		"visitor":       r.Header.Get("CF-Visitor"),
+		"ipcity":        r.Header.Get("CF-IPCity"),
+		"user_agent":    r.Header.Get("User-Agent"),
+		"accept":        r.Header.Get("Accept"),
+		"lang":          r.Header.Get("Accept-Language"),
+		"encoding":      r.Header.Get("Accept-Encoding"),
+		"host":          r.Host,
+		"method":        r.Method,
+		"remote_addr":   r.RemoteAddr,
+		"remote_path":   r.URL.Path,
+		"proto":         r.Proto,
 	}
 }
 
 // shouldSkip reports whether the request should be silently dropped
-// (e.g. missing User-Agent or known bot tools like wget).
+// (e.g. missing User-Agent).
 func shouldSkip(userAgent string) bool {
 	if userAgent == "" {
 		return true
