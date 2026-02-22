@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"Erebus/internal/bable"
+	"Erebus/internal/erebusconfig"
 	cache "Erebus/internal/rediscache"
 )
 
@@ -84,7 +85,8 @@ func GenerateHandler(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 
 	// Stream main content slowly
-	streamWords(w, flusher, r, strings.Fields(generatedText), 8)
+	streamWords(w, flusher, r, strings.Fields(generatedText),
+		erebusconfig.Conf.StreamInterval)
 
 	// Close the streamed paragraph and text div
 	_, _ = fmt.Fprint(w, `</p></div>`)
