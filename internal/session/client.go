@@ -1,25 +1,26 @@
-// Package rediscache will do things with redis
-package rediscache
+// Package session manages IP session tracking for the tarpit via Redis.
+package session
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"os"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
-// RedisClient stores the client pointer.
-type RedisClient struct {
+// Client stores the client pointer.
+type Client struct {
 	Rdb *redis.Client
 	Ctx context.Context
 }
 
-// NewRedisClient creates a new struct RedisClient.
+// New creates a new struct Client.
 // It retries the connection up to maxRetries times with a delay between attempts,
 // allowing time for the Redis container to become reachable on the network.
-func NewRedisClient() (*RedisClient, error) {
+func New() (*Client, error) {
 	const maxRetries = 10
 	const retryDelay = 3 * time.Second
 
@@ -40,7 +41,7 @@ func NewRedisClient() (*RedisClient, error) {
 			time.Sleep(retryDelay)
 			continue
 		}
-		return &RedisClient{
+		return &Client{
 			Rdb: rdb,
 			Ctx: ctx,
 		}, nil
@@ -49,17 +50,13 @@ func NewRedisClient() (*RedisClient, error) {
 	return nil, fmt.Errorf("failed to connect to Redis after %d attempts: %w", maxRetries, lastErr)
 }
 
-// TestRedisConnection tests the connection with the Redis instnace.
-func (rc *RedisClient) TestRedisConnection() (bool, error) {
-	_, err := rc.Rdb.Ping(rc.Ctx).Result()
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+// Ping tests the connection with the Redis instance.
+func (rc *Client) Ping() error {
+	return rc.Rdb.Ping(rc.Ctx).Err()
 }
 
 // Get will get the value of key.
-func (rc *RedisClient) Get(key string) (string, error) {
+func (rc *Client) Get(key string) (string, error) {
 	val, err := rc.Rdb.Get(rc.Ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
 		return "", fmt.Errorf("key '%s' does not exist", key)
@@ -70,12 +67,12 @@ func (rc *RedisClient) Get(key string) (string, error) {
 }
 
 // Set will set the value of key.
-func (rc *RedisClient) Set(key string, value any, expiration time.Duration) error {
+func (rc *Client) Set(key string, value any, expiration time.Duration) error {
 	return rc.Rdb.Set(rc.Ctx, key, value, expiration).Err()
 }
 
 // Delete will delete the value of key.
-func (rc *RedisClient) Delete(keys ...string) (int64, error) {
+func (rc *Client) Delete(keys ...string) (int64, error) {
 	deleted, err := rc.Rdb.Del(rc.Ctx, keys...).Result()
 	if err != nil {
 		return 0, err
@@ -84,7 +81,7 @@ func (rc *RedisClient) Delete(keys ...string) (int64, error) {
 }
 
 // Exists will check if key exists.
-func (rc *RedisClient) Exists(key string) (bool, error) {
+func (rc *Client) Exists(key string) (bool, error) {
 	count, err := rc.Rdb.Exists(rc.Ctx, key).Result()
 	if err != nil {
 		return false, err
@@ -93,6 +90,6 @@ func (rc *RedisClient) Exists(key string) (bool, error) {
 }
 
 // Close will close the connection with redis.
-func (rc *RedisClient) Close() error {
+func (rc *Client) Close() error {
 	return rc.Rdb.Close()
 }

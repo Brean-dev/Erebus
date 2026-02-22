@@ -1,4 +1,4 @@
-package rediscache
+package session
 
 import (
 	"errors"
@@ -13,8 +13,6 @@ import (
 )
 
 var (
-	// ErrNoRedisClient indicates Redis client creation failed.
-	ErrNoRedisClient = errors.New("redis client unavailable")
 	// ErrInvalidIP indicates the IP address is missing or invalid.
 	ErrInvalidIP = errors.New("invalid or missing IP address")
 )
@@ -36,18 +34,7 @@ const ttlHistory = 24 * time.Hour
 // When a returning IP is detected whose previous session has expired,
 // the trapped duration (last_seen - first_seen) is logged so an external
 // analytics server can aggregate total trapped time per IP.
-func SetIP(r *http.Request) error {
-	rc, err := NewRedisClient()
-	if err != nil {
-		slog.Error("failed to create redis client", "error", err)
-		return fmt.Errorf("create redis client: %w", err)
-	}
-	defer func() {
-		if closeErr := rc.Close(); closeErr != nil {
-			slog.Warn("failed to close redis client", "error", closeErr)
-		}
-	}()
-
+func (c *Client) SetIP(r *http.Request) error {
 	ip := r.Header.Get("CF-Connecting-IP")
 	if ip == "" {
 		return ErrInvalidIP
@@ -67,7 +54,7 @@ func SetIP(r *http.Request) error {
 	now := time.Now().Unix()
 	nowStr := strconv.FormatInt(now, 10)
 
-	active, err := rc.Exists(activeKey)
+	active, err := c.Exists(activeKey)
 	if err != nil {
 		slog.Error("failed to check active session", "ip", ip, "error", err)
 		return fmt.Errorf("check active session: %w", err)
@@ -75,12 +62,12 @@ func SetIP(r *http.Request) error {
 
 	if active {
 		// Continuing session: refresh active marker and update last-seen.
-		pipe := rc.Rdb.TxPipeline()
-		pipe.SetEx(rc.Ctx, activeKey, "1", ttlSet)
-		pipe.Set(rc.Ctx, lastSeenKey, nowStr, ttlHistory)
-		pipe.SetEx(rc.Ctx, realIPKey, "1", ttlSet)
+		pipe := c.Rdb.TxPipeline()
+		pipe.SetEx(c.Ctx, activeKey, "1", ttlSet)
+		pipe.Set(c.Ctx, lastSeenKey, nowStr, ttlHistory)
+		pipe.SetEx(c.Ctx, realIPKey, "1", ttlSet)
 
-		if _, pipeErr := pipe.Exec(rc.Ctx); pipeErr != nil {
+		if _, pipeErr := pipe.Exec(c.Ctx); pipeErr != nil {
 			slog.Error("failed to refresh session", "ip", ip, "error", pipeErr)
 			return fmt.Errorf("refresh session: %w", pipeErr)
 		}
@@ -88,9 +75,9 @@ func SetIP(r *http.Request) error {
 	}
 
 	// No active session. Check for a previous expired session to log its duration.
-	ctx := rc.Ctx
-	firstSeenStr, firstErr := rc.Rdb.Get(ctx, firstSeenKey).Result()
-	lastSeenStr, lastErr := rc.Rdb.Get(ctx, lastSeenKey).Result()
+	ctx := c.Ctx
+	firstSeenStr, firstErr := c.Rdb.Get(ctx, firstSeenKey).Result()
+	lastSeenStr, lastErr := c.Rdb.Get(ctx, lastSeenKey).Result()
 
 	// Log session end if both timestamps exist
 	switch {
@@ -113,13 +100,13 @@ func SetIP(r *http.Request) error {
 	}
 
 	// Start a new session.
-	writePipe := rc.Rdb.TxPipeline()
-	writePipe.Set(rc.Ctx, firstSeenKey, nowStr, ttlHistory)
-	writePipe.Set(rc.Ctx, lastSeenKey, nowStr, ttlHistory)
-	writePipe.SetEx(rc.Ctx, activeKey, "1", ttlSet)
-	writePipe.SetEx(rc.Ctx, realIPKey, "1", ttlSet)
+	writePipe := c.Rdb.TxPipeline()
+	writePipe.Set(c.Ctx, firstSeenKey, nowStr, ttlHistory)
+	writePipe.Set(c.Ctx, lastSeenKey, nowStr, ttlHistory)
+	writePipe.SetEx(c.Ctx, activeKey, "1", ttlSet)
+	writePipe.SetEx(c.Ctx, realIPKey, "1", ttlSet)
 
-	if _, pipeErr := writePipe.Exec(rc.Ctx); pipeErr != nil {
+	if _, pipeErr := writePipe.Exec(c.Ctx); pipeErr != nil {
 		slog.Error("failed to start new session", "ip", ip, "error", pipeErr)
 		return fmt.Errorf("start new session: %w", pipeErr)
 	}
@@ -128,27 +115,13 @@ func SetIP(r *http.Request) error {
 }
 
 // GetKey returns a key from redis as a string.
-func GetKey(key string) (string, error) {
+func (c *Client) GetKey(key string) (string, error) {
 	if key == "" {
 		return "", errors.New("key cannot be empty")
 	}
 
-	rc, err := NewRedisClient()
+	result, err := c.Get(key)
 	if err != nil {
-		slog.Error("failed to create redis client", "error", err)
-		return "", fmt.Errorf("create redis client: %w", err)
-	}
-	defer func() {
-		if closeErr := rc.Close(); closeErr != nil {
-			slog.Warn("failed to close redis client", "error", closeErr)
-		}
-	}()
-
-	result, err := rc.Get(key)
-	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			return "", fmt.Errorf("key not found: %s", key)
-		}
 		slog.Error("failed to get value from redis", "key", key, "error", err)
 		return "", fmt.Errorf("get key: %w", err)
 	}
@@ -157,24 +130,13 @@ func GetKey(key string) (string, error) {
 }
 
 // GetAllConnectedIPs returns all currently connected IP addresses.
-func GetAllConnectedIPs() ([]string, error) {
-	rc, err := NewRedisClient()
-	if err != nil {
-		slog.Error("failed to create redis client", "error", err)
-		return nil, fmt.Errorf("create redis client: %w", err)
-	}
-	defer func() {
-		if closeErr := rc.Close(); closeErr != nil {
-			slog.Warn("failed to close redis client", "error", closeErr)
-		}
-	}()
-
+func (c *Client) GetAllConnectedIPs() ([]string, error) {
 	var cursor uint64
 	var ips []string
-	ctx := rc.Ctx
+	ctx := c.Ctx
 
 	for {
-		keys, newCursor, err := rc.Rdb.Scan(ctx, cursor, "real-ip:*", 100).Result()
+		keys, newCursor, err := c.Rdb.Scan(ctx, cursor, "real-ip:*", 100).Result()
 		if err != nil {
 			slog.Error("failed to scan redis keys", "error", err)
 			return nil, fmt.Errorf("scan keys: %w", err)

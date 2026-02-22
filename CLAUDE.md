@@ -44,7 +44,7 @@ main.go
 ### Key Packages
 
 **`internal/pages/`** — Core HTTP handlers and page generation:
-- `GenerateHandler` streams chunked HTML to clients. It calls `streamWords` which writes words in random-sized chunks (1–8 words) with configurable delays (`StreamInterval` from `config.toml`, default 6s). Uses `http.Flusher` to push data without buffering. Sets `X-Accel-Buffering: no` to disable Nginx buffering.
+- `MakeGenerateHandler(rc)` returns an `http.HandlerFunc` that streams chunked HTML to clients. It calls `streamWords` which writes words in random-sized chunks (1–8 words) with configurable delays (`StreamInterval` from `config.toml`, default 6s). Uses `http.Flusher` to push data without buffering. Sets `X-Accel-Buffering: no` to disable Nginx buffering.
 - `structure.go` generates page sections, breadcrumbs, sidebars, footers
 - `links.go` generates realistic-looking URLs (e.g., `/articles/2023/12/slug`, `/tag/keyword`)
 - `meta.go` generates SEO metadata, Open Graph tags, JSON-LD schema
@@ -52,10 +52,11 @@ main.go
 
 **`internal/bable/`** — Markov chain text generator trained on `manifest` and `words_manifesto` files. `NewChain(prefixLen)` → `Build(text)` → `GenerateSentences(n)`.
 
-**`internal/rediscache/`** — IP session tracking:
+**`internal/session/`** — IP session tracking via Redis (`Client` struct, constructor `New()`):
 - Uses CloudFlare header `CF-Connecting-IP` for real IP extraction
 - Keys: `trap:active:{ip}` (180s TTL), `trap:first-seen:{ip}`, `trap:last-seen:{ip}` (24h TTL)
 - Logs session duration when an IP returns after the active timeout expires
+- `Client` is initialized once at startup in `main.go` and injected into handlers via `pages.MakeGenerateHandler(rc)`
 
 **`internal/erebusconfig/`** — Loads `config.toml` (TOML format). `StreamInterval float64` controls seconds between word chunks.
 

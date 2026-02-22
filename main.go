@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"Erebus/internal/pages"
-	cache "Erebus/internal/rediscache"
+	"Erebus/internal/session"
 	"Erebus/internal/utils"
 	"github.com/MatusOllah/slogcolor"
 )
@@ -18,15 +18,16 @@ import (
 func main() {
 	slog.SetDefault(slog.New(slogcolor.NewHandler(os.Stderr, slogcolor.DefaultOptions)))
 
-	if _, err := cache.NewRedisClient(); err != nil {
+	rc, err := session.New()
+	if err != nil {
 		slog.Error("redis connection failed", "err", err)
-	} else {
-		slog.Info("redis connected")
+		os.Exit(1)
 	}
+	slog.Info("redis connected")
 
 	http.HandleFunc("/robots.txt", pages.RobotsHandler)
 	http.HandleFunc("/sitemap.xml", pages.SitemapHandler)
-	http.HandleFunc("/", pages.GenerateHandler)
+	http.HandleFunc("/", pages.MakeGenerateHandler(rc))
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", 8080),
