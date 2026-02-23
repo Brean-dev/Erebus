@@ -105,7 +105,7 @@ func LogRequest(handler http.Handler) http.Handler {
 			reqLog := log.WithFields(
 				logger.Field{Key: "country", Value: details["country"]},
 				logger.Field{Key: "ray", Value: details["ray"]},
-				logger.Field{Key: "connecting_ip", Value: details["connecting_ip"]},
+				logger.Field{Key: "real_ip", Value: details["connecting_ip"]},
 				logger.Field{Key: "visitor", Value: details["visitor"]},
 				logger.Field{Key: "ipcity", Value: details["ipcity"]},
 				logger.Field{Key: "user_agent", Value: details["user_agent"]},
