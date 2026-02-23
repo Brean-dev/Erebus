@@ -62,6 +62,32 @@ func NewFileLogger(output io.Writer, level Level) *FileLogger {
 	}
 }
 
+// shouldFilter returns true if the fields contain a user_agent that should
+// be excluded from logging (empty or known bot/renewal agents).
+func shouldFilter(fields []Field) bool {
+	for _, field := range fields {
+		if field.Key != "user_agent" {
+			continue
+		}
+		strValue, ok := field.Value.(string)
+		if !ok {
+			continue
+		}
+		if strValue == "" || strings.Contains(strValue, "www.letsencrypt.org") {
+			return true
+		}
+	}
+	return false
+}
+
+// mergeFields concatenates base fields with call-site fields.
+func mergeFields(base, extra []Field) []Field {
+	out := make([]Field, 0, len(base)+len(extra))
+	out = append(out, base...)
+	out = append(out, extra...)
+	return out
+}
+
 // StdoutLogger methods - implements Logger interface with colored output
 
 func (l *StdoutLogger) log(ctx context.Context, level Level,
@@ -72,6 +98,11 @@ func (l *StdoutLogger) log(ctx context.Context, level Level,
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	allFields := mergeFields(l.fields, fields)
+	if shouldFilter(allFields) {
+		return
+	}
 
 	// Convert Level to slog.Level
 	var slogLevel slog.Level
@@ -96,21 +127,8 @@ func (l *StdoutLogger) log(ctx context.Context, level Level,
 		"header_len":  true,
 	}
 
-	attrs := []slog.Attr{}
-	allFields := make([]Field, 0, len(l.fields)+len(fields))
-	allFields = append(allFields, l.fields...)
-	allFields = append(allFields, fields...)
+	attrs := make([]slog.Attr, 0, len(allFields))
 	for _, field := range allFields {
-		if field.Key == "user_agent" {
-			strValue, ok := field.Value.(string)
-			if !ok {
-				continue
-			}
-			if strValue == "" ||
-				strings.Contains(strValue, "www.letsencrypt.org") {
-				return
-			}
-		}
 		if !excludedKeys[field.Key] {
 			attrs = append(attrs, slog.Any(field.Key, field.Value))
 		}
@@ -182,27 +200,15 @@ func (l *FileLogger) log(_ context.Context, level Level,
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// Build entry with all fields
+	allFields := mergeFields(l.fields, fields)
+	if shouldFilter(allFields) {
+		return
+	}
+
 	entry := map[string]any{
 		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
 		"level":     level.String(),
 		"message":   msg,
-	}
-
-	allFields := make([]Field, 0, len(l.fields)+len(fields))
-	allFields = append(allFields, l.fields...)
-	allFields = append(allFields, fields...)
-
-	for _, field := range allFields {
-		if field.Key == "user_agent" {
-			strValue, ok := field.Value.(string)
-			if !ok {
-				continue
-			}
-			if strValue == "" || strings.Contains(strValue, "www.l") {
-				return
-			}
-		}
 	}
 	for _, field := range allFields {
 		entry[field.Key] = field.Value
