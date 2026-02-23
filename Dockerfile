@@ -22,7 +22,7 @@ FROM alpine:latest
 # Install ca-certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+WORKDIR /
 
 # Copy the binary from builder
 COPY --from=builder /app/erebus .
