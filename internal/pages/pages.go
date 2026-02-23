@@ -25,6 +25,7 @@ func MakeGenerateHandler(rc *session.Client) http.HandlerFunc {
 }
 
 func generateHandler(rc *session.Client, w http.ResponseWriter, r *http.Request) {
+	responseController := http.NewResponseController(w)
 	// Store real-ip in Redis, we will use this as a unique ID
 	// later on we check how long this value has been in our memory
 	// This will give a better idea of how long some scrapers have been stuck
@@ -80,7 +81,7 @@ func generateHandler(rc *session.Client, w http.ResponseWriter, r *http.Request)
 		BreadcrumbHTML: template.HTML(RenderBreadcrumbs(GenerateBreadcrumbs(r.URL.Path))), //nolint:gosec
 		BylineHTML:     template.HTML(RenderByline(meta)),                                 //nolint:gosec
 	}
-
+	_ = responseController.SetWriteDeadline(time.Now().Add(30 * time.Second))
 	err = ts.Execute(w, data)
 	if err != nil {
 		log.Printf("error executing template: %s", err.Error())
@@ -90,7 +91,7 @@ func generateHandler(rc *session.Client, w http.ResponseWriter, r *http.Request)
 	flusher.Flush()
 
 	// Stream main content slowly
-	streamWords(w, flusher, r, strings.Fields(generatedText),
+	streamWords(w, flusher, responseController, r, strings.Fields(generatedText),
 		erebusconfig.Conf.StreamInterval)
 
 	// Close the streamed paragraph and text div
@@ -145,13 +146,18 @@ func generateHandler(rc *session.Client, w http.ResponseWriter, r *http.Request)
 	flusher.Flush()
 }
 
-func streamWords(w http.ResponseWriter, flusher http.Flusher, r *http.Request, words []string, intervalSeconds float64) {
+func streamWords(w http.ResponseWriter, flusher http.Flusher,
+	rc *http.ResponseController, r *http.Request,
+	words []string, intervalSeconds float64) {
 	i := 0
 	for i < len(words) {
 		select {
 		case <-r.Context().Done():
 			return
 		default:
+			if err := rc.SetWriteDeadline(time.Now().Add(30 * time.Second)); err != nil {
+				return
+			}
 			chunkSize := 1 + rand.IntN(8) //nolint:gosec
 			if i+chunkSize > len(words) {
 				chunkSize = len(words) - i
