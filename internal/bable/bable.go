@@ -3,6 +3,7 @@ package bable
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
 	"os"
@@ -14,7 +15,7 @@ import (
 type Chain struct {
 	vocab     []string
 	wordToID  map[string]int
-	chain     map[uint64][]int
+	chain     map[string][]int
 	prefixLen int
 }
 
@@ -31,7 +32,7 @@ func NewChain(prefixLen int) *Chain {
 	return &Chain{
 		vocab:     make([]string, 0, 1000),
 		wordToID:  make(map[string]int),
-		chain:     make(map[uint64][]int),
+		chain:     make(map[string][]int),
 		prefixLen: prefixLen,
 	}
 }
@@ -50,73 +51,72 @@ func (chain *Chain) internWord(word string) int {
 // Build processes text into the Markov chain.
 func (chain *Chain) Build(text string) {
 	sentences := splitIntoSentences(text)
+	startID := chain.internWord(startToken)
+	endID := chain.internWord(endToken)
 
 	for _, sentence := range sentences {
-		tokens := tokenize(sentence)
-		if len(tokens) == 0 {
+		words := tokenize(sentence)
+		if len(words) == 0 {
 			continue
 		}
 
-		// Initialize prefix with START tokens
 		prefix := make(Prefix, chain.prefixLen)
-		startID := chain.internWord(startToken)
-		for i := 0; i < chain.prefixLen; i++ {
+		for i := range prefix {
 			prefix[i] = startID
 		}
 
-		// Build chain by recording what word follows each prefix
-		for _, token := range tokens {
-			tokenID := chain.internWord(token)
-			key := hashPrefix(prefix)
-			chain.chain[key] = append(chain.chain[key], tokenID)
-			prefix.Shift(tokenID)
+		for _, word := range words {
+			wordID := chain.internWord(word)
+			key := encodePrefix(prefix)
+			chain.chain[key] = append(chain.chain[key], wordID)
+			prefix.Shift(wordID)
 		}
 
-		// Mark sentence end
-		endID := chain.internWord(endToken)
-		key := hashPrefix(prefix)
+		key := encodePrefix(prefix)
 		chain.chain[key] = append(chain.chain[key], endID)
 	}
 }
 
+// sentenceRe matches sentence-ending punctuation followed by whitespace and a capital letter.
+// Requiring a capital letter avoids false splits on abbreviations like "i.e." or "Mr.".
+var sentenceRe = regexp.MustCompile(`([.!?]+)\s+([A-Z])`)
+
 func splitIntoSentences(text string) []string {
-	sentenceDelimiter := regexp.MustCompile(`[.!?]+[\s\n]+`)
-	sentences := sentenceDelimiter.Split(text, -1)
+	// Insert a null byte between the punctuation and the capital letter so we can
+	// split there without losing the capital that starts the next sentence.
+	separated := sentenceRe.ReplaceAllString(text, "$1\x00$2")
+	parts := strings.Split(separated, "\x00")
 
-	var cleaned []string
-	for _, sentence := range sentences {
-		sentence = strings.TrimSpace(sentence)
-		if sentence != "" {
-			cleaned = append(cleaned, sentence)
+	sentences := make([]string, 0, len(parts))
+	for _, s := range parts {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			sentences = append(sentences, s)
 		}
 	}
-	return cleaned
+	return sentences
 }
 
-var tokenizeRe = regexp.MustCompile(`[\w']+|[,;:\-\(\)\"]+`)
+// wordRe matches individual words only (no punctuation in the chain).
+var wordRe = regexp.MustCompile(`[a-zA-Z']+`)
 
-// tokenize splits text into individual words and punctuation tokens.
-// Punctuation is separated from words so the chain learns word-level
-// transitions and where punctuation naturally appears.
-// It's just a regex though.
+// tokenize splits text into individual words, ignoring punctuation.
 func tokenize(text string) []string {
-	return tokenizeRe.FindAllString(text, -1)
+	return wordRe.FindAllString(text, -1)
 }
 
-// isPunctuation checks if the current string is a punctuation token.
-func isPunctuation(s string) bool {
-	for _, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
-			(r >= '0' && r <= '9') || r == '\'' {
-			return false
-		}
+// encodePrefix encodes word IDs as a binary string key, avoiding hash collisions.
+func encodePrefix(prefix []int) string {
+	buf := make([]byte, len(prefix)*8)
+	for i, id := range prefix {
+		binary.LittleEndian.PutUint64(buf[i*8:], uint64(id)) //nolint:gosec
 	}
-	return true
+	return string(buf)
 }
 
 // GenerateSentences produces complete sentences using START/END tokens.
 func (chain *Chain) GenerateSentences(numSentences int) string {
-	var sentences []string
+	sentences := make([]string, 0, numSentences)
 
 	for range numSentences {
 		sentence := chain.generateOneSentence()
@@ -129,22 +129,21 @@ func (chain *Chain) GenerateSentences(numSentences int) string {
 }
 
 func (chain *Chain) generateOneSentence() string {
-	prefix := make(Prefix, chain.prefixLen)
-
 	startID, hasStart := chain.wordToID[startToken]
 	if !hasStart {
 		return ""
 	}
 
-	for i := 0; i < chain.prefixLen; i++ {
+	prefix := make(Prefix, chain.prefixLen)
+	for i := range prefix {
 		prefix[i] = startID
 	}
 
-	var tokens []string
-	maxTokens := 100
+	tokens := make([]string, 0, 20)
+	const maxTokens = 100
 
 	for len(tokens) < maxTokens {
-		key := hashPrefix(prefix)
+		key := encodePrefix(prefix)
 		choices := chain.chain[key]
 
 		if len(choices) == 0 {
@@ -162,46 +161,13 @@ func (chain *Chain) generateOneSentence() string {
 		prefix.Shift(nextID)
 	}
 
-	return joinTokens(tokens)
-}
-
-// joinTokens reassembles tokens into text, attaching punctuation
-// directly to the preceding word without a space.
-func joinTokens(tokens []string) string {
-	if len(tokens) == 0 {
-		return ""
-	}
-
-	var builder strings.Builder
-	builder.WriteString(tokens[0])
-
-	for _, token := range tokens[1:] {
-		if !isPunctuation(token) {
-			builder.WriteByte(' ')
-		}
-		builder.WriteString(token)
-	}
-
-	return builder.String()
+	return strings.Join(tokens, " ")
 }
 
 // Shift removes the first element and appends wordID to the end.
 func (prefix Prefix) Shift(wordID int) {
 	copy(prefix, prefix[1:])
 	prefix[len(prefix)-1] = wordID
-}
-
-// hashPrefix uses FNV-1a hash algorithm to create a unique key from word IDs.
-func hashPrefix(wordIDs []int) uint64 {
-	const fnvOffsetBasis uint64 = 14695981039346656037
-	const fnvPrime = 1099511628211
-
-	hash := fnvOffsetBasis
-	for _, id := range wordIDs {
-		hash ^= uint64(id) //nolint:gosec
-		hash *= fnvPrime
-	}
-	return hash
 }
 
 // ReadManifesto reads the manifest file and returns its contents as a single string.
@@ -217,13 +183,16 @@ func ReadManifesto() string {
 		}
 	}()
 
-	var words []string
+	var sb strings.Builder
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
-		word := scanner.Text()
-		if word != "" {
-			words = append(words, word)
+		line := scanner.Text()
+		if line != "" {
+			if sb.Len() > 0 {
+				sb.WriteByte(' ')
+			}
+			sb.WriteString(line)
 		}
 	}
 
@@ -231,15 +200,12 @@ func ReadManifesto() string {
 		fmt.Printf("error reading file: %s\n", err)
 	}
 
-	return strings.Join(words, " ")
+	return sb.String()
 }
 
 // Bable generates random text by building a Markov chain from the manifesto.
 func Bable(numSentences int, prefixLen int) string {
 	chain := NewChain(prefixLen)
 	chain.Build(ReadManifesto())
-
-	text := chain.GenerateSentences(numSentences)
-
-	return text
+	return chain.GenerateSentences(numSentences)
 }
