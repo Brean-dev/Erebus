@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -37,38 +36,6 @@ const ttlHistory = 24 * time.Hour
 // analytics server can aggregate total trapped time per IP.
 func (c *Client) SetIP(r *http.Request) error {
 	ip := r.Header.Get("CF-Connecting-IP")
-	// Try CloudFlare header first, then fall back to other common headers
-	if ip == "" {
-		ip = r.Header.Get("X-Forwarded-For")
-		if ip == "" {
-			ip = r.Header.Get("X-Real-IP")
-			if ip == "" {
-				ip = r.RemoteAddr
-			}
-		}
-	}
-
-	// Handle X-Forwarded-For which may contain multiple IPs (take the first)
-	if strings.Contains(ip, ",") {
-		ip = strings.TrimSpace(strings.Split(ip, ",")[0])
-	}
-
-	// Strip port if present in RemoteAddr format
-	if strings.Contains(ip, ":") {
-		ip, _, _ = strings.Cut(ip, ":")
-	}
-
-	ip = strings.TrimSpace(ip)
-
-	if ip == "" {
-		return ErrInvalidIP
-	}
-
-	// Validate IP to prevent key injection attacks and ensure it's a valid IP address
-	if net.ParseIP(ip) == nil {
-		slog.Warn("invalid IP address format", "ip", ip)
-		return ErrInvalidIP
-	}
 
 	activeKey := fmt.Sprintf("trap:active:%s", ip)
 	firstSeenKey := fmt.Sprintf("trap:first-seen:%s", ip)
