@@ -44,8 +44,6 @@ func openLogFile() {
 		_ = logFile.Close()
 	}
 
-	currentLogDate = today
-
 	f, err := os.OpenFile(
 		fmt.Sprintf("./logs/app_%s.log", today),
 		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600,
@@ -55,6 +53,7 @@ func openLogFile() {
 		return
 	}
 
+	currentLogDate = today
 	logFile = f
 	log = logger.NewMultiLogger(
 		logger.NewStdoutLogger(os.Stdout, logger.InfoLevel),
@@ -82,13 +81,15 @@ func requestDetails(r *http.Request) map[string]string {
 	}
 }
 
-// shouldSkip reports whether the request should be silently dropped
-// (e.g. missing User-Agent).
-func shouldSkip(userAgent string) bool {
+// shouldSkipLog reports whether the request should be silently skipped
+// from logging (e.g. missing User-Agent or known noise bots).
+func shouldSkipLog(userAgent string) bool {
 	if userAgent == "" {
 		return true
 	}
-	return strings.Contains(strings.ToLower(userAgent), "wget")
+	ua := strings.ToLower(userAgent)
+	return strings.Contains(ua, "wget") ||
+		strings.Contains(ua, "www.letsencrypt.org")
 }
 
 // LogRequest wraps an http.Handler to log each incoming request.
@@ -100,23 +101,21 @@ func LogRequest(handler http.Handler) http.Handler {
 
 		details := requestDetails(r)
 
-		if shouldSkip(details["user_agent"]) {
-			return
+		if !shouldSkipLog(details["user_agent"]) {
+			reqLog := log.WithFields(
+				logger.Field{Key: "remote_addr", Value: details["remote_addr"]},
+				logger.Field{Key: "method", Value: details["method"]},
+				logger.Field{Key: "remote_path", Value: details["remote_path"]},
+				logger.Field{Key: "proto", Value: details["proto"]},
+				logger.Field{Key: "user_agent", Value: details["user_agent"]},
+				logger.Field{Key: "accept", Value: details["accept"]},
+				logger.Field{Key: "lang", Value: details["lang"]},
+				logger.Field{Key: "encoding", Value: details["encoding"]},
+				logger.Field{Key: "header_len", Value: len(r.Header)},
+				logger.Field{Key: "real_ip", Value: details["connecting_ip"]},
+			)
+			reqLog.Info(r.Context(), "")
 		}
-
-		reqLog := log.WithFields(
-			logger.Field{Key: "remote_addr", Value: details["remote_addr"]},
-			logger.Field{Key: "method", Value: details["method"]},
-			logger.Field{Key: "remote_path", Value: details["remote_path"]},
-			logger.Field{Key: "proto", Value: details["proto"]},
-			logger.Field{Key: "user_agent", Value: details["user_agent"]},
-			logger.Field{Key: "accept", Value: details["accept"]},
-			logger.Field{Key: "lang", Value: details["lang"]},
-			logger.Field{Key: "encoding", Value: details["encoding"]},
-			logger.Field{Key: "header_len", Value: len(r.Header)},
-			logger.Field{Key: "real_ip", Value: details["connecting_ip"]},
-		)
-		reqLog.Info(r.Context(), "")
 
 		handler.ServeHTTP(w, r)
 	})
