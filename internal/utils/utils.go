@@ -103,16 +103,21 @@ func LogRequest(handler http.Handler) http.Handler {
 
 		if !shouldSkipLog(details["user_agent"]) {
 			reqLog := log.WithFields(
-				logger.Field{Key: "remote_addr", Value: details["remote_addr"]},
-				logger.Field{Key: "method", Value: details["method"]},
-				logger.Field{Key: "remote_path", Value: details["remote_path"]},
-				logger.Field{Key: "proto", Value: details["proto"]},
+				logger.Field{Key: "country", Value: details["country"]},
+				logger.Field{Key: "ray", Value: details["ray"]},
+				logger.Field{Key: "connecting_ip", Value: details["connecting_ip"]},
+				logger.Field{Key: "visitor", Value: details["visitor"]},
+				logger.Field{Key: "ipcity", Value: details["ipcity"]},
 				logger.Field{Key: "user_agent", Value: details["user_agent"]},
 				logger.Field{Key: "accept", Value: details["accept"]},
 				logger.Field{Key: "lang", Value: details["lang"]},
 				logger.Field{Key: "encoding", Value: details["encoding"]},
+				logger.Field{Key: "host", Value: details["host"]},
+				logger.Field{Key: "method", Value: details["method"]},
+				logger.Field{Key: "remote_addr", Value: details["remote_addr"]},
+				logger.Field{Key: "remote_path", Value: details["remote_path"]},
+				logger.Field{Key: "proto", Value: details["proto"]},
 				logger.Field{Key: "header_len", Value: len(r.Header)},
-				logger.Field{Key: "real_ip", Value: details["connecting_ip"]},
 			)
 			reqLog.Info(r.Context(), "")
 		}

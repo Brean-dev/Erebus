@@ -103,6 +103,10 @@ func (l *StdoutLogger) log(ctx context.Context, level Level,
 		"lang":        true,
 		"encoding":    true,
 		"header_len":  true,
+		"method":      true,
+		"proto":       true,
+		"visitor":     true,
+		"user_agent":  true,
 	}
 
 	attrs := make([]slog.Attr, 0, len(allFields))
